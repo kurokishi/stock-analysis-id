@@ -6,3 +6,4 @@ plotly==6.1.1
 requests==2.32.3
 beautifulsoup4==4.13.4
 ta
+matplotlib
