@@ -180,13 +180,20 @@ else:
 
         st.subheader("Strategi Alokasi Modal Baru")
         modal_baru = st.number_input("Jumlah Modal Baru (Rp)", min_value=0, value=10000000, step=1000000)
+
+        col_val, col_yield = st.columns(2)
+        with col_val:
+            bobot_valuasi = st.slider("Bobot Valuasi (PBV)", 0.0, 1.0, 0.5, step=0.05)
+        with col_yield:
+            bobot_yield = 1.0 - bobot_valuasi
+            st.markdown(f"Bobot Dividend Yield: **{bobot_yield:.2f}**")
+
         df_beli = df_ringkasan[df_ringkasan['Rekomendasi'] == 'Beli'].copy()
 
         if not df_beli.empty and modal_baru > 0:
-            # Skor kombinasi dari valuasi (PBV) dan dividend yield
             df_beli['Skor Valuasi'] = 1 / df_beli['PBV'].replace(0, np.nan)
             df_beli['Skor Yield'] = df_beli['Dividend Yield']
-            df_beli['Skor Total'] = df_beli['Skor Valuasi'].fillna(0) + df_beli['Skor Yield'].fillna(0)
+            df_beli['Skor Total'] = bobot_valuasi * df_beli['Skor Valuasi'].fillna(0) + bobot_yield * df_beli['Skor Yield'].fillna(0)
             df_beli['Proporsi'] = df_beli['Skor Total'] / df_beli['Skor Total'].sum()
             df_beli['Alokasi Modal (Rp)'] = df_beli['Proporsi'] * modal_baru
 
@@ -201,4 +208,4 @@ else:
             st.plotly_chart(fig_alokasi, use_container_width=True)
         else:
             st.info("Tidak ada saham dengan rekomendasi 'Beli' atau modal belum diisi.")
-            
+        
