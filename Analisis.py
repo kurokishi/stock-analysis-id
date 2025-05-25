@@ -135,6 +135,8 @@ else:
     st.dataframe(st.session_state.portfolio)
 
     total_nilai = 0
+    ringkasan = []
+
     for idx, row in st.session_state.portfolio.iterrows():
         ticker = row['Ticker']
         shares = row['Shares']
@@ -172,5 +174,22 @@ else:
         rekomendasi = get_recommendation(valuasi, ma50, ma200, rsi)
         st.write(f"**Rekomendasi: {rekomendasi}**")
 
+        ringkasan.append({
+            "Saham": ticker,
+            "Harga Saat Ini": current_price,
+            "Valuasi": valuasi,
+            "RSI": round(rsi, 2),
+            "MA50": round(ma50, 2),
+            "MA200": round(ma200, 2),
+            "Rekomendasi": rekomendasi
+        })
+
     st.markdown(f"## Total Nilai Portofolio: Rp{total_nilai:,.0f}")
-    
+
+    if ringkasan:
+        st.subheader("Ringkasan Rekomendasi")
+        df_ringkasan = pd.DataFrame(ringkasan)
+        st.dataframe(df_ringkasan)
+        fig_rec = px.pie(df_ringkasan, names='Rekomendasi', title='Distribusi Rekomendasi Saham')
+        st.plotly_chart(fig_rec, use_container_width=True)
+        
