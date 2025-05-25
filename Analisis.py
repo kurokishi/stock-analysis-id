@@ -1,333 +1,506 @@
-# 📌 stock_analysis_pytorch.py
-# Aplikasi Analisis Saham BEI dengan PyTorch
-# by [Nama Anda]
-
 import streamlit as st
 import pandas as pd
 import numpy as np
 import yfinance as yf
 import matplotlib.pyplot as plt
-import plotly.graph_objects as go
 from datetime import datetime, timedelta
+import plotly.graph_objects as go
+import plotly.express as px
+import requests
+from bs4 import BeautifulSoup
+import json
 import warnings
 warnings.filterwarnings('ignore')
 
-# =============================================
-# 🧠 IMPLEMENTASI MODEL DENGAN PYTORCH
-# =============================================
+# Konfigurasi awal
+st.set_page_config(layout="wide", page_title="Portofolio Saham Analyzer")
 
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
-from sklearn.preprocessing import MinMaxScaler
+# Fungsi untuk mendapatkan data saham
+def get_stock_data(ticker, period='1y'):
+    stock = yf.Ticker(ticker + ".JK")
+    hist = stock.history(period=period)
+    return stock, hist
 
-class TimeSeriesDataset(Dataset):
-    """Dataset untuk time series"""
-    def __init__(self, data, seq_length):
-        self.data = data
-        self.seq_length = seq_length
-        
-    def __len__(self):
-        return len(self.data) - self.seq_length
+# Fungsi untuk menghitung indikator teknikal
+def calculate_technical_indicators(df):
+    df['MA50'] = df['Close'].rolling(window=50).mean()
+    df['MA200'] = df['Close'].rolling(window=200).mean()
     
-    def __getitem__(self, idx):
-        x = self.data[idx:idx+self.seq_length]
-        y = self.data[idx+self.seq_length]
-        return torch.FloatTensor(x), torch.FloatTensor([y])
-
-class LSTMModel(nn.Module):
-    """Model LSTM dengan PyTorch"""
-    def __init__(self, input_size=1, hidden_size=50, output_size=1, num_layers=2):
-        super().__init__()
-        self.hidden_size = hidden_size
-        self.num_layers = num_layers
-        
-        self.lstm = nn.LSTM(
-            input_size=input_size,
-            hidden_size=hidden_size,
-            num_layers=num_layers,
-            batch_first=True,
-            dropout=0.2
-        )
-        self.fc = nn.Linear(hidden_size, output_size)
-        
-    def forward(self, x):
-        h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size)
-        c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size)
-        
-        out, _ = self.lstm(x, (h0, c0))
-        out = self.fc(out[:, -1, :])
-        return out
-
-def predict_with_pytorch(prices, seq_length=60, epochs=20):
-    """Prediksi harga dengan PyTorch LSTM"""
-    try:
-        # Normalisasi data
-        scaler = MinMaxScaler()
-        scaled_data = scaler.fit_transform(prices.values.reshape(-1, 1))
-        
-        # Siapkan dataset
-        dataset = TimeSeriesDataset(scaled_data, seq_length)
-        train_size = int(0.8 * len(dataset))
-        train_dataset, test_dataset = torch.utils.data.random_split(
-            dataset, [train_size, len(dataset) - train_size])
-        
-        train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-        
-        # Inisialisasi model
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model = LSTMModel().to(device)
-        criterion = nn.MSELoss()
-        optimizer = optim.Adam(model.parameters(), lr=0.001)
-        
-        # Pelatihan model
-        model.train()
-        for epoch in range(epochs):
-            for batch_x, batch_y in train_loader:
-                batch_x, batch_y = batch_x.to(device), batch_y.to(device)
-                
-                optimizer.zero_grad()
-                outputs = model(batch_x.unsqueeze(-1))
-                loss = criterion(outputs, batch_y)
-                loss.backward()
-                optimizer.step()
-        
-        # Prediksi
-        model.eval()
-        last_sequence = scaled_data[-seq_length:]
-        with torch.no_grad():
-            inputs = torch.FloatTensor(last_sequence).unsqueeze(0).unsqueeze(-1).to(device)
-            prediction = model(inputs).cpu().numpy()
-        
-        predicted_price = scaler.inverse_transform(prediction)[0][0]
-        return max(predicted_price, 0)
-    
-    except Exception as e:
-        st.warning(f"Prediksi PyTorch gagal: {str(e)}")
-        return prices.iloc[-1] * (1 + np.random.uniform(-0.05, 0.1))  # Fallback
-
-# =============================================
-# 📊 FUNGSI ANALISIS SAHAM (TIDAK BERUBAH)
-# =============================================
-
-def calculate_rsi(prices, window=14):
-    """Hitung Relative Strength Index (RSI)"""
-    delta = prices.diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window).mean()
+    # Hitung RSI
+    delta = df['Close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
     rs = gain / loss
-    return 100 - (100 / (1 + rs))
+    df['RSI'] = 100 - (100 / (1 + rs))
+    
+    # Hitung MACD
+    exp12 = df['Close'].ewm(span=12, adjust=False).mean()
+    exp26 = df['Close'].ewm(span=26, adjust=False).mean()
+    df['MACD'] = exp12 - exp26
+    df['Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
+    
+    return df
 
-def analyze_stock(ticker):
-    """Analisis fundamental dan teknikal saham"""
+# Fungsi untuk mendapatkan data fundamental
+def get_fundamental_data(ticker):
     try:
-        stock = yf.Ticker(f"{ticker}.JK")
-        hist = stock.history(period="1y")
+        url = f"https://finance.yahoo.com/quote/{ticker}.JK/key-statistics"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url, headers=headers)
+        soup = BeautifulSoup(response.text, 'html.parser')
         
-        if hist.empty:
-            st.error(f"Tidak ada data untuk {ticker}")
-            return None
+        # Ini adalah contoh sederhana, perlu disesuaikan dengan struktur halaman sebenarnya
+        pe_ratio = soup.find("td", {"data-test": "PE_RATIO-value"}).text
+        pb_ratio = soup.find("td", {"data-test": "PB_RATIO-value"}).text
+        dividend_yield = soup.find("td", {"data-test": "DIVIDEND_AND_YIELD-value"}).text.split('(')[1].split(')')[0]
         
-        # Indikator Teknikal
-        hist['MA20'] = hist['Close'].rolling(20).mean()
-        hist['RSI'] = calculate_rsi(hist['Close'])
-        
-        # Prediksi Harga
-        current_price = hist['Close'].iloc[-1]
-        predicted_price = predict_with_pytorch(hist['Close'])
-        
-        # Analisis Fundamental
-        info = stock.info
-        per = info.get('trailingPE', np.nan)
-        pbv = info.get('priceToBook', np.nan)
-        dy = info.get('dividendYield', 0) * 100  # dalam persen
-        
-        # Rekomendasi
-        if pd.isna(per) or pd.isna(pbv):
-            recommendation = "DATA TIDAK LENGKAP"
-            color = "gray"
-        elif per < 12 and pbv < 1.5:
-            recommendation = "UNDERVALUED 🟢 (Potensi Beli)"
-            color = "green"
-        elif per > 20 or pbv > 3:
-            recommendation = "OVERVALUED 🔴 (Hati-hati)"
-            color = "red"
-        else:
-            recommendation = "FAIRLY VALUED 🟡 (Tahan)"
-            color = "orange"
-            
         return {
-            'Ticker': ticker,
-            'Harga (Rp)': f"{current_price:,.0f}",
-            'Prediksi 6 Bulan (Rp)': f"{predicted_price:,.0f}",
-            'PER': f"{per:.2f}",
-            'PBV': f"{pbv:.2f}",
-            'Dividend Yield (%)': f"{dy:.2f}%",
-            'RSI (14)': f"{hist['RSI'].iloc[-1]:.1f}",
-            'Rekomendasi': recommendation,
-            'Warna': color
+            'PER': float(pe_ratio),
+            'PBV': float(pb_ratio),
+            'Dividend Yield': float(dividend_yield.strip('%')) / 100
         }
-    except Exception as e:
-        st.error(f"Error analisis {ticker}: {str(e)}")
-        return None
+    except:
+        return {
+            'PER': np.nan,
+            'PBV': np.nan,
+            'Dividend Yield': np.nan
+        }
 
-# =============================================
-# 📈 FUNGSI VISUALISASI (TIDAK BERUBAH)
-# =============================================
+# Fungsi untuk mengevaluasi valuasi
+def evaluate_valuation(pe, pb, industry_pe=15, industry_pb=2):
+    if pd.isna(pe) or pd.isna(pb):
+        return "Data tidak tersedia"
+    
+    pe_score = 0
+    pb_score = 0
+    
+    if pe < industry_pe * 0.7:
+        pe_score = 2
+    elif pe < industry_pe:
+        pe_score = 1
+    elif pe > industry_pe * 1.3:
+        pe_score = -1
+    
+    if pb < industry_pb * 0.7:
+        pb_score = 2
+    elif pb < industry_pb:
+        pb_score = 1
+    elif pb > industry_pb * 1.3:
+        pb_score = -1
+    
+    total_score = pe_score + pb_score
+    
+    if total_score >= 3:
+        return "Undervalued"
+    elif total_score >= 1:
+        return "Fairly valued"
+    else:
+        return "Overvalued"
 
-def plot_stock_chart(ticker, with_prediction=False):
-    """Plot grafik saham interaktif dengan Plotly"""
+# Fungsi untuk proyeksi dividen
+def calculate_dividend_projection(ticker, shares, current_price):
     try:
-        data = yf.Ticker(f"{ticker}.JK").history(period="1y")
-        
-        if data.empty:
-            st.warning(f"Tidak ada data grafik untuk {ticker}")
-            return
-        
-        fig = go.Figure()
-        
-        # Candlestick
-        fig.add_trace(go.Candlestick(
-            x=data.index,
-            open=data['Open'],
-            high=data['High'],
-            low=data['Low'],
-            close=data['Close'],
-            name='Harga',
-            increasing_line_color='green',
-            decreasing_line_color='red'
-        ))
-        
-        # Moving Average
-        fig.add_trace(go.Scatter(
-            x=data.index,
-            y=data['Close'].rolling(20).mean(),
-            name='MA20',
-            line=dict(color='orange', width=2)
-        ))
-        
-        if with_prediction:
-            # Prediksi
-            current_price = data['Close'].iloc[-1]
-            predicted_price = predict_with_pytorch(data['Close'])
+        stock = yf.Ticker(ticker + ".JK")
+        dividends = stock.dividends
+        if len(dividends) > 0:
+            avg_dividend = dividends[-4:].mean()  # Rata-rata 4 dividen terakhir
+            dividend_per_share = avg_dividend / current_price
+            annual_dividend = shares * dividend_per_share
+            return annual_dividend
+        else:
+            return 0
+    except:
+        return 0
+
+# Fungsi untuk simulasi bunga majemuk
+def compound_interest_simulation(initial_value, growth_rate, years, dividend_yield=0, reinvest=True):
+    results = []
+    current_value = initial_value
+    for year in range(1, years+1):
+        capital_growth = current_value * (1 + growth_rate)
+        dividends = current_value * dividend_yield
+        if reinvest:
+            current_value = capital_growth + dividends
+        else:
+            current_value = capital_growth
+        results.append({
+            'Year': year,
+            'Portfolio Value': current_value,
+            'Dividends': dividends if not reinvest else 0
+        })
+    return pd.DataFrame(results)
+
+# Inisialisasi session state untuk portofolio
+if 'portfolio' not in st.session_state:
+    st.session_state.portfolio = pd.DataFrame(columns=['Ticker', 'Shares', 'Buy Price', 'Current Price', 'Value'])
+
+# UI Aplikasi
+st.title("🤑 Asisten Analisis Portofolio Saham")
+st.markdown("""
+**Aplikasi ini membantu Anda menganalisis dan mengelola portofolio saham pribadi** dengan fitur:
+- Analisis fundamental & teknikal
+- Rekomendasi alokasi modal baru
+- Indikator jual/tahan/tambah
+- Simulasi pertumbuhan portofolio
+""")
+
+# Tab navigasi
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "Portofolio Saat Ini", 
+    "Analisis Saham", 
+    "Rekomendasi Alokasi", 
+    "Indikator Jual/Tahan/Tambah", 
+    "Simulasi Pertumbuhan"
+])
+
+with tab1:
+    st.header("📊 Portofolio Saat Ini")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("Tambah/Edit Saham")
+        with st.form("portfolio_form"):
+            ticker = st.text_input("Kode Saham (contoh: BBCA)", "").upper()
+            shares = st.number_input("Jumlah Lot", min_value=1, value=1)
+            buy_price = st.number_input("Harga Beli per Saham (Rp)", min_value=1, value=1000)
             
-            fig.add_trace(go.Scatter(
-                x=[data.index[-1], data.index[-1] + timedelta(days=180)],
-                y=[current_price, predicted_price],
-                name='Prediksi 6 Bulan',
-                line=dict(color='blue', dash='dot', width=3),
-                mode='lines+markers'
-            ))
+            submitted = st.form_submit_button("Tambahkan ke Portofolio")
+            if submitted and ticker:
+                try:
+                    stock_data = yf.Ticker(ticker + ".JK")
+                    current_price = stock_data.history(period='1d')['Close'].iloc[-1]
+                    
+                    new_row = {
+                        'Ticker': ticker,
+                        'Shares': shares * 100,  # Convert lot to shares
+                        'Buy Price': buy_price,
+                        'Current Price': current_price,
+                        'Value': shares * 100 * current_price
+                    }
+                    
+                    if ticker in st.session_state.portfolio['Ticker'].values:
+                        st.session_state.portfolio.loc[st.session_state.portfolio['Ticker'] == ticker] = pd.Series(new_row)
+                    else:
+                        st.session_state.portfolio = st.session_state.portfolio.append(new_row, ignore_index=True)
+                    
+                    st.success(f"{ticker} berhasil ditambahkan/diperbarui!")
+                except:
+                    st.error("Gagal mendapatkan data saham. Pastikan kode saham benar.")
+    
+    with col2:
+        st.subheader("Hapus Saham")
+        if not st.session_state.portfolio.empty:
+            to_delete = st.selectbox(
+                "Pilih saham untuk dihapus",
+                st.session_state.portfolio['Ticker'].unique()
+            )
+            if st.button("Hapus dari Portofolio"):
+                st.session_state.portfolio = st.session_state.portfolio[st.session_state.portfolio['Ticker'] != to_delete]
+                st.success(f"{to_delete} berhasil dihapus!")
+        else:
+            st.info("Portofolio kosong. Tambahkan saham terlebih dahulu.")
+    
+    st.subheader("Ringkasan Portofolio")
+    if not st.session_state.portfolio.empty:
+        # Hitung total nilai portofolio
+        total_value = st.session_state.portfolio['Value'].sum()
+        total_investment = (st.session_state.portfolio['Shares'] * st.session_state.portfolio['Buy Price']).sum()
+        profit_loss = total_value - total_investment
+        profit_loss_pct = (profit_loss / total_investment) * 100
         
-        fig.update_layout(
-            title=f'Grafik {ticker} (1 Tahun)',
-            xaxis_title='Tanggal',
-            yaxis_title='Harga (Rp)',
-            hovermode='x unified',
-            template='plotly_white',
-            height=600
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total Nilai Portofolio", f"Rp{total_value:,.0f}")
+        col2.metric("Total Investasi", f"Rp{total_investment:,.0f}")
+        col3.metric("Profit/Loss", 
+                   f"Rp{profit_loss:,.0f}", 
+                   f"{profit_loss_pct:.2f}%",
+                   delta_color="inverse" if profit_loss < 0 else "normal")
+        
+        # Tampilkan tabel portofolio
+        st.dataframe(st.session_state.portfolio.style.format({
+            'Buy Price': '{:,.0f}',
+            'Current Price': '{:,.0f}',
+            'Value': '{:,.0f}'
+        }), height=300)
+        
+        # Grafik alokasi portofolio
+        fig = px.pie(
+            st.session_state.portfolio, 
+            names='Ticker', 
+            values='Value',
+            title='Alokasi Portofolio'
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("Portofolio Anda masih kosong. Tambahkan saham untuk memulai analisis.")
+
+with tab2:
+    st.header("🔍 Analisis Saham")
+    
+    if not st.session_state.portfolio.empty:
+        selected_ticker = st.selectbox(
+            "Pilih saham untuk dianalisis",
+            st.session_state.portfolio['Ticker'].unique()
         )
         
-        st.plotly_chart(fig, use_container_width=True)
-    except Exception as e:
-        st.error(f"Error membuat grafik: {str(e)}")
-
-# =============================================
-# 🖥️ ANTARMUKA STREAMLIT (TIDAK BERUBAH)
-# =============================================
-
-def init_session():
-    """Inisialisasi session state"""
-    if 'portfolio' not in st.session_state:
-        st.session_state.portfolio = {}
-
-def main():
-    st.set_page_config(
-        page_title="Analisis Saham BEI dengan PyTorch",
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
-    
-    st.title("📈 Analisis Saham BEI dengan AI (PyTorch)")
-    st.markdown("""
-    **Aplikasi untuk menganalisis saham Bursa Efek Indonesia (IDX)**
-    - Prediksi harga dengan model LSTM PyTorch
-    - Analisis valuasi fundamental
-    - Manajemen portofolio
-    """)
-    
-    init_session()
-    
-    menu = st.sidebar.radio(
-        "Menu Utama",
-        ["Portofolio Saya", "Analisis Saham", "Prediksi AI", "Tentang"]
-    )
-    
-    if menu == "Portofolio Saya":
-        # ... (implementasi sama seperti sebelumnya)
-        pass
+        stock_data = st.session_state.portfolio[st.session_state.portfolio['Ticker'] == selected_ticker].iloc[0]
+        shares = stock_data['Shares']
+        buy_price = stock_data['Buy Price']
+        current_price = stock_data['Current Price']
         
-    elif menu == "Analisis Saham":
-        # ... (implementasi sama seperti sebelumnya)
-        pass
-    
-    elif menu == "Prediksi AI":
-        st.header("🤖 Prediksi Harga dengan PyTorch LSTM")
-        st.info("""
-        Fitur ini menggunakan model LSTM dari PyTorch untuk memprediksi pergerakan harga saham.
-        """)
+        # Dapatkan data historis
+        stock, hist = get_stock_data(selected_ticker)
+        hist = calculate_technical_indicators(hist)
         
-        ticker = st.text_input("Masukkan Kode Saham untuk Prediksi", "BBCA").upper().strip()
+        # Dapatkan data fundamental (simulasi)
+        fundamental = get_fundamental_data(selected_ticker)
+        valuation_status = evaluate_valuation(fundamental['PER'], fundamental['PBV'])
         
-        if st.button("Jalankan Prediksi AI"):
-            if not ticker:
-                st.error("Masukkan kode saham yang valid")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("Fundamental")
+            st.metric("PER", f"{fundamental['PER']:.2f}" if not pd.isna(fundamental['PER']) else "N/A")
+            st.metric("PBV", f"{fundamental['PBV']:.2f}" if not pd.isna(fundamental['PBV']) else "N/A")
+            st.metric("Dividend Yield", f"{fundamental['Dividend Yield']:.2%}" if not pd.isna(fundamental['Dividend Yield']) else "N/A")
+            st.metric("Status Valuasi", valuation_status)
+            
+            # Analisis AI sederhana (simulasi)
+            st.subheader("Analisis AI")
+            if valuation_status == "Undervalued":
+                st.success("""
+                **Potensi Baik**: Saham ini tampak undervalued berdasarkan metrik fundamental. 
+                Memiliki ruang untuk apresiasi harga jika kinerja perusahaan tetap baik.
+                """)
+            elif valuation_status == "Overvalued":
+                st.warning("""
+                **Hati-hati**: Saham ini tampak overvalued berdasarkan metrik fundamental. 
+                Pertimbangkan untuk mengambil profit atau mencari peluang lain.
+                """)
             else:
-                with st.spinner("Menjalankan model PyTorch..."):
-                    try:
-                        data = yf.Ticker(f"{ticker}.JK").history(period="1y")
-                        
-                        if data.empty:
-                            st.error(f"Tidak ada data untuk {ticker}")
-                        else:
-                            current_price = data['Close'].iloc[-1]
-                            predicted = predict_with_pytorch(data['Close'])
-                            
-                            col1, col2 = st.columns(2)
-                            with col1:
-                                st.metric("Harga Saat Ini", f"Rp {current_price:,.0f}")
-                            with col2:
-                                st.metric("Prediksi 6 Bulan", f"Rp {predicted:,.0f}", 
-                                         delta=f"{((predicted-current_price)/current_price*100):.1f}%")
-                            
-                            plot_stock_chart(ticker, with_prediction=True)
-                            
-                            st.success("""
-                            **Detail Model:**
-                            - Arsitektur: 2-layer LSTM dengan dropout
-                            - Optimizer: Adam
-                            - Loss Function: MSE
-                            - Device: {'GPU' if torch.cuda.is_available() else 'CPU'}
-                            """)
-                    except Exception as e:
-                        st.error(f"Gagal memprediksi: {str(e)}")
-    
-    elif menu == "Tentang":
-        st.header("📝 Tentang Aplikasi")
-        st.markdown("""
-        **Aplikasi Analisis Saham BEI dengan PyTorch**
+                st.info("""
+                **Netral**: Saham ini tampak fairly valued. 
+                Pantau perkembangan perusahaan dan kondisi pasar untuk keputusan berikutnya.
+                """)
         
-        Dibangun dengan:
-        - PyTorch sebagai engine AI utama
-        - Streamlit untuk antarmuka
-        - yFinance untuk data saham
+        with col2:
+            st.subheader("Teknikal")
+            # Grafik harga
+            fig = go.Figure()
+            fig.add_trace(go.Candlestick(
+                x=hist.index,
+                open=hist['Open'],
+                high=hist['High'],
+                low=hist['Low'],
+                close=hist['Close'],
+                name='Harga'
+            ))
+            fig.add_trace(go.Scatter(
+                x=hist.index,
+                y=hist['MA50'],
+                name='MA 50',
+                line=dict(color='orange')
+            ))
+            fig.add_trace(go.Scatter(
+                x=hist.index,
+                y=hist['MA200'],
+                name='MA 200',
+                line=dict(color='purple')
+            ))
+            fig.update_layout(title=f'Performa Harga {selected_ticker}')
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Grafik RSI
+            fig_rsi = go.Figure()
+            fig_rsi.add_trace(go.Scatter(
+                x=hist.index,
+                y=hist['RSI'],
+                name='RSI'
+            ))
+            fig_rsi.add_hline(y=70, line_dash="dash", line_color="red", annotation_text="Overbought")
+            fig_rsi.add_hline(y=30, line_dash="dash", line_color="green", annotation_text="Oversold")
+            fig_rsi.update_layout(title='Indikator RSI (14 hari)')
+            st.plotly_chart(fig_rsi, use_container_width=True)
         
-        **Keunggulan:**
-        - Kompatibel dengan Python versi terbaru
-        - Performa lebih baik dengan dukungan GPU
-        - Fleksibilitas arsitektur model
-        """)
+        # Proyeksi dividen
+        st.subheader("Proyeksi Dividen")
+        annual_dividend = calculate_dividend_projection(selected_ticker, shares, current_price)
+        st.metric("Estimasi Dividen Tahunan", f"Rp{annual_dividend:,.0f}")
+        
+    else:
+        st.info("Portofolio Anda masih kosong. Tambahkan saham terlebih dahulu untuk melihat analisis.")
 
-if __name__ == "__main__":
-    main()
+with tab3:
+    st.header("💰 Rekomendasi Alokasi Modal Baru")
+    
+    if not st.session_state.portfolio.empty:
+        new_capital = st.number_input("Masukkan jumlah modal baru (Rp)", min_value=1000000, value=5000000, step=1000000)
+        
+        if st.button("Buat Rekomendasi Alokasi"):
+            # Sederhananya, kita akan merekomendasikan alokasi berdasarkan valuasi dan dividen
+            portfolio = st.session_state.portfolio.copy()
+            
+            # Hitung skor untuk setiap saham
+            portfolio['Valuation Score'] = portfolio.apply(lambda row: 
+                3 if evaluate_valuation(get_fundamental_data(row['Ticker'])['PER'], 
+                                      get_fundamental_data(row['Ticker'])['PBV']) == "Undervalued" else
+                1 if evaluate_valuation(get_fundamental_data(row['Ticker'])['PER'], 
+                                      get_fundamental_data(row['Ticker'])['PBV']) == "Fairly valued" else
+                0, axis=1)
+            
+            portfolio['Dividend Score'] = portfolio.apply(lambda row: 
+                get_fundamental_data(row['Ticker'])['Dividend Yield'] * 100, axis=1)
+            
+            # Gabungkan skor (50% valuasi, 50% dividen)
+            portfolio['Total Score'] = 0.5 * portfolio['Valuation Score'] + 0.5 * portfolio['Dividend Score']
+            portfolio['Allocation %'] = portfolio['Total Score'] / portfolio['Total Score'].sum()
+            portfolio['Recommended Allocation'] = (portfolio['Allocation %'] * new_capital).astype(int)
+            
+            # Tampilkan hasil
+            st.subheader("Rekomendasi Alokasi Modal")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.dataframe(portfolio[['Ticker', 'Recommended Allocation']].sort_values(
+                    'Recommended Allocation', ascending=False).style.format({
+                    'Recommended Allocation': '{:,.0f}'
+                }))
+            
+            with col2:
+                fig = px.pie(
+                    portfolio, 
+                    names='Ticker', 
+                    values='Recommended Allocation',
+                    title='Alokasi Rekomendasi'
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            
+            # Penjelasan strategi
+            st.subheader("Strategi dan Asumsi")
+            st.markdown("""
+            **Strategi Alokasi**:
+            - Prioritas diberikan kepada saham yang:
+              * Undervalued berdasarkan PER dan PBV
+              * Memiliki dividend yield tinggi
+            - Modal dialokasikan secara proporsional berdasarkan skor kombinasi valuasi dan dividen
+            
+            **Asumsi**:
+            - Data fundamental diambil dari sumber publik (simulasi)
+            - Rekomendasi ini tidak mempertimbangkan faktor eksternal seperti kondisi pasar atau berita perusahaan
+            - Selalu lakukan riset tambahan sebelum mengambil keputusan investasi
+            """)
+    else:
+        st.info("Portofolio Anda masih kosong. Tambahkan saham terlebih dahulu untuk mendapatkan rekomendasi.")
+
+with tab4:
+    st.header("📈 Indikator Jual/Tahan/Tambah")
+    
+    if not st.session_state.portfolio.empty:
+        st.markdown("""
+        **Rekomendasi untuk setiap saham dalam portofolio Anda** berdasarkan:
+        - Valuasi saat ini
+        - Tren harga
+        - Potensi dividen
+        """)
+        
+        recommendations = []
+        for _, row in st.session_state.portfolio.iterrows():
+            ticker = row['Ticker']
+            shares = row['Shares']
+            buy_price = row['Buy Price']
+            current_price = row['Current Price']
+            
+            # Dapatkan data fundamental
+            fundamental = get_fundamental_data(ticker)
+            valuation_status = evaluate_valuation(fundamental['PER'], fundamental['PBV'])
+            
+            # Hitung profit/loss
+            profit_loss = (current_price - buy_price) * shares
+            profit_loss_pct = (current_price - buy_price) / buy_price * 100
+            
+            # Buat rekomendasi sederhana
+            if valuation_status == "Undervalued" and profit_loss_pct < 20:
+                action = "Tambah"
+                reason = "Undervalued dengan potensi kenaikan"
+                risk_reward = "Rendah-Risiko/Tinggi-Reward"
+            elif valuation_status == "Overvalued" and profit_loss_pct > 0:
+                action = "Jual Sebagian"
+                reason = "Overvalued dengan profit positif"
+                risk_reward = "Tinggi-Risiko/Rendah-Reward"
+            elif profit_loss_pct > 30:
+                action = "Jual Sebagian"
+                reason = "Profit sudah signifikan"
+                risk_reward = "Sedang-Risiko/Sedang-Reward"
+            else:
+                action = "Tahan"
+                reason = "Valuasi wajar dan tren positif"
+                risk_reward = "Sedang-Risiko/Sedang-Reward"
+            
+            recommendations.append({
+                'Ticker': ticker,
+                'Profit/Loss (Rp)': profit_loss,
+                'Profit/Loss (%)': profit_loss_pct,
+                'Valuation': valuation_status,
+                'Action': action,
+                'Reason': reason,
+                'Risk/Reward': risk_reward
+            })
+        
+        df_recommendations = pd.DataFrame(recommendations)
+        st.dataframe(df_recommendations.style.format({
+            'Profit/Loss (Rp)': '{:,.0f}',
+            'Profit/Loss (%)': '{:.2f}%'
+        }), height=400)
+        
+        # Grafik rekomendasi
+        fig = px.bar(
+            df_recommendations,
+            x='Ticker',
+            y='Profit/Loss (%)',
+            color='Action',
+            title='Rekomendasi Aksi untuk Portofolio',
+            text='Profit/Loss (%)'
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        
+    else:
+        st.info("Portofolio Anda masih kosong. Tambahkan saham terlebih dahulu untuk melihat rekomendasi.")
+
+with tab5:
+    st.header("📊 Simulasi Pertumbuhan Portofolio")
+    
+    if not st.session_state.portfolio.empty:
+        # Hitung rata-rata pertumbuhan historis portofolio
+        total_growth = 0
+        dividend_yield = 0
+        count = 0
+        
+        for _, row in st.session_state.portfolio.iterrows():
+            ticker = row['Ticker']
+            try:
+                stock = yf.Ticker(ticker + ".JK")
+                hist = stock.history(period='5y')
+                if len(hist) > 1:
+                    start_price = hist['Close'].iloc[0]
+                    end_price = hist['Close'].iloc[-1]
+                    growth = (end_price - start_price) / start_price / 5  # Pertumbuhan tahunan
+                    total_growth += growth
+                    
+                    # Hitung dividend yield
+                    dividends = stock.dividends
+                    if len(dividends) > 0:
+                        avg_dividend = dividends[-4:].mean()
+                        dividend_yield += avg_dividend / end_price
+                    
+                    count += 1
+            except:
+                continue
+        
+        if count > 0:
+            avg_growth = total_growth / count
+            avg_dividend_yield = dividend_yield / count
+        else:
+            avg_growth = 0.1  # Default 10% jika tidak ada data
+    
