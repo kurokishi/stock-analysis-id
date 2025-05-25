@@ -173,4 +173,4 @@ else:
         st.write(f"**Rekomendasi: {rekomendasi}**")
 
     st.markdown(f"## Total Nilai Portofolio: Rp{total_nilai:,.0f}")
-            
+    
