@@ -148,31 +148,13 @@ else:
         nilai_saham = shares * current_price
         total_nilai += nilai_saham
 
-        st.markdown(f"### {ticker}")
-        st.write(f"Harga Saat Ini: Rp{current_price:,.0f}")
-        st.write(f"Nilai: Rp{nilai_saham:,.0f}")
-
         fundamental = get_fundamental_data(ticker)
-        st.write(f"PER: {fundamental['PER']:.2f} | PBV: {fundamental['PBV']:.2f} | Yield: {fundamental['Dividend Yield']:.2%}")
         valuasi = evaluate_valuation(fundamental['PER'], fundamental['PBV'])
-        st.write(f"Valuasi: **{valuasi}**")
-
         hist = calculate_technical_indicators(hist)
-        fig = go.Figure()
-        fig.add_trace(go.Candlestick(x=hist.index, open=hist['Open'], high=hist['High'], low=hist['Low'], close=hist['Close']))
-        fig.add_trace(go.Scatter(x=hist.index, y=hist['MA50'], line=dict(color='blue'), name='MA50'))
-        fig.add_trace(go.Scatter(x=hist.index, y=hist['MA200'], line=dict(color='red'), name='MA200'))
-        fig.update_layout(title=f"Grafik Harga {ticker}", xaxis_title="Tanggal", yaxis_title="Harga")
-        st.plotly_chart(fig, use_container_width=True)
-
-        annual_div = calculate_dividend_projection(ticker, shares, current_price)
-        st.write(f"Perkiraan Dividen Tahunan: Rp{annual_div:,.0f}")
-
         rsi = hist['RSI'].iloc[-1]
         ma50 = hist['MA50'].iloc[-1]
         ma200 = hist['MA200'].iloc[-1]
         rekomendasi = get_recommendation(valuasi, ma50, ma200, rsi)
-        st.write(f"**Rekomendasi: {rekomendasi}**")
 
         ringkasan.append({
             "Saham": ticker,
@@ -192,4 +174,19 @@ else:
         st.dataframe(df_ringkasan)
         fig_rec = px.pie(df_ringkasan, names='Rekomendasi', title='Distribusi Rekomendasi Saham')
         st.plotly_chart(fig_rec, use_container_width=True)
-        
+
+        st.subheader("Strategi Alokasi Modal Baru")
+        modal_baru = st.number_input("Jumlah Modal Baru (Rp)", min_value=0, value=10000000, step=1000000)
+        df_beli = df_ringkasan[df_ringkasan['Rekomendasi'] == 'Beli'].copy()
+
+        if not df_beli.empty and modal_baru > 0:
+            df_beli['Skor'] = 1  # Anda bisa menambah bobot lebih kompleks di sini
+            df_beli['Proporsi'] = df_beli['Skor'] / df_beli['Skor'].sum()
+            df_beli['Alokasi Modal (Rp)'] = df_beli['Proporsi'] * modal_baru
+
+            st.dataframe(df_beli[['Saham', 'Harga Saat Ini', 'Alokasi Modal (Rp)']].style.format({'Harga Saat Ini': 'Rp{:.0f}', 'Alokasi Modal (Rp)': 'Rp{:.0f}'}))
+            fig_alokasi = px.bar(df_beli, x='Saham', y='Alokasi Modal (Rp)', title='Alokasi Modal Berdasarkan Rekomendasi')
+            st.plotly_chart(fig_alokasi, use_container_width=True)
+        else:
+            st.info("Tidak ada saham dengan rekomendasi 'Beli' atau modal belum diisi.")
+    
