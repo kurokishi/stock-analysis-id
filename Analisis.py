@@ -160,6 +160,9 @@ else:
             "Saham": ticker,
             "Harga Saat Ini": current_price,
             "Valuasi": valuasi,
+            "PER": fundamental['PER'],
+            "PBV": fundamental['PBV'],
+            "Dividend Yield": fundamental['Dividend Yield'],
             "RSI": round(rsi, 2),
             "MA50": round(ma50, 2),
             "MA200": round(ma200, 2),
@@ -180,13 +183,22 @@ else:
         df_beli = df_ringkasan[df_ringkasan['Rekomendasi'] == 'Beli'].copy()
 
         if not df_beli.empty and modal_baru > 0:
-            df_beli['Skor'] = 1  # Anda bisa menambah bobot lebih kompleks di sini
-            df_beli['Proporsi'] = df_beli['Skor'] / df_beli['Skor'].sum()
+            # Skor kombinasi dari valuasi (PBV) dan dividend yield
+            df_beli['Skor Valuasi'] = 1 / df_beli['PBV'].replace(0, np.nan)
+            df_beli['Skor Yield'] = df_beli['Dividend Yield']
+            df_beli['Skor Total'] = df_beli['Skor Valuasi'].fillna(0) + df_beli['Skor Yield'].fillna(0)
+            df_beli['Proporsi'] = df_beli['Skor Total'] / df_beli['Skor Total'].sum()
             df_beli['Alokasi Modal (Rp)'] = df_beli['Proporsi'] * modal_baru
 
-            st.dataframe(df_beli[['Saham', 'Harga Saat Ini', 'Alokasi Modal (Rp)']].style.format({'Harga Saat Ini': 'Rp{:.0f}', 'Alokasi Modal (Rp)': 'Rp{:.0f}'}))
-            fig_alokasi = px.bar(df_beli, x='Saham', y='Alokasi Modal (Rp)', title='Alokasi Modal Berdasarkan Rekomendasi')
+            st.dataframe(df_beli[['Saham', 'Harga Saat Ini', 'Dividend Yield', 'PBV', 'Alokasi Modal (Rp)']].style.format({
+                'Harga Saat Ini': 'Rp{:.0f}',
+                'Dividend Yield': '{:.2%}',
+                'PBV': '{:.2f}',
+                'Alokasi Modal (Rp)': 'Rp{:.0f}'
+            }))
+
+            fig_alokasi = px.bar(df_beli, x='Saham', y='Alokasi Modal (Rp)', title='Alokasi Modal Berdasarkan Valuasi & Yield')
             st.plotly_chart(fig_alokasi, use_container_width=True)
         else:
             st.info("Tidak ada saham dengan rekomendasi 'Beli' atau modal belum diisi.")
-    
+            
