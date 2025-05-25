@@ -1,5 +1,5 @@
-# 📌 stock_analysis_id.py
-# Aplikasi Analisis Portofolio Saham BEI (Indonesia)
+# 📌 stock_analysis_tf.py
+# Aplikasi Analisis Saham BEI dengan TensorFlow
 # by [Nama Anda]
 
 import streamlit as st
@@ -9,7 +9,6 @@ import yfinance as yf
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
-from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense
@@ -17,42 +16,58 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # =============================================
-# 🛠️ FUNGSI UTAMA
+# 🛠️ FUNGSI UTAMA DENGAN TENSORFLOW
 # =============================================
 
 def init_session():
     """Inisialisasi session state"""
     if 'portfolio' not in st.session_state:
         st.session_state.portfolio = {}
-    if 'models' not in st.session_state:
-        st.session_state.models = {}
 
-def calculate_rsi(prices, window=14):
-    """Hitung Relative Strength Index (RSI)"""
-    delta = prices.diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window).mean()
-    rs = gain / loss
-    return 100 - (100 / (1 + rs))
+def check_python_version():
+    """Pastikan versi Python kompatibel"""
+    import sys
+    if sys.version_info >= (3, 13):
+        st.error("⚠️ Python 3.13 tidak didukung TensorFlow. Gunakan Python 3.9-3.11")
+        st.stop()
 
-def predict_with_lstm(prices, lookback=60):
-    """Prediksi harga dengan LSTM (sederhana)"""
-    scaler = MinMaxScaler()
-    scaled_data = scaler.fit_transform(prices.values.reshape(-1, 1))
-    
-    # Model LSTM minimalis
+def prepare_lstm_model(input_shape):
+    """Membuat model LSTM sederhana"""
     model = Sequential([
-        LSTM(32, input_shape=(lookback, 1)),
+        LSTM(50, return_sequences=True, input_shape=input_shape),
+        LSTM(50),
         Dense(1)
     ])
     model.compile(optimizer='adam', loss='mse')
+    return model
+
+def predict_with_tensorflow(prices, lookback=60):
+    """Prediksi harga dengan TensorFlow LSTM"""
+    scaler = MinMaxScaler()
+    scaled_data = scaler.fit_transform(prices.values.reshape(-1, 1))
     
-    # Prediksi dummy (real implementation butuh training)
-    future_price = prices.iloc[-1] * (1 + np.random.uniform(-0.1, 0.25))
-    return max(future_price, 0)
+    # Siapkan data training (dummy)
+    X_train, y_train = [], []
+    for i in range(lookback, len(scaled_data)):
+        X_train.append(scaled_data[i-lookback:i, 0])
+        y_train.append(scaled_data[i, 0])
+    
+    X_train, y_train = np.array(X_train), np.array(y_train)
+    X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
+    
+    # Buat dan latih model
+    model = prepare_lstm_model((X_train.shape[1], 1))
+    model.fit(X_train, y_train, epochs=10, batch_size=32, verbose=0)
+    
+    # Prediksi
+    inputs = scaled_data[-lookback:].reshape(1, lookback, 1)
+    predicted = model.predict(inputs, verbose=0)
+    predicted_price = scaler.inverse_transform(predicted)[0][0]
+    
+    return max(predicted_price, 0)  # Harga tidak boleh negatif
 
 def analyze_stock(ticker):
-    """Analisis fundamental & teknikal saham"""
+    """Analisis saham dengan TensorFlow"""
     try:
         stock = yf.Ticker(f"{ticker}.JK")
         hist = stock.history(period="1y")
@@ -61,9 +76,9 @@ def analyze_stock(ticker):
         hist['MA20'] = hist['Close'].rolling(20).mean()
         hist['RSI'] = calculate_rsi(hist['Close'])
         
-        # Prediksi harga
+        # Prediksi harga dengan TensorFlow
         current_price = hist['Close'].iloc[-1]
-        predicted_price = predict_with_lstm(hist['Close'])
+        predicted_price = predict_with_tensorflow(hist['Close'])
         
         # Valuasi
         info = stock.info
@@ -71,7 +86,7 @@ def analyze_stock(ticker):
         pbv = info.get('priceToBook', np.nan)
         dy = info.get('dividendYield', 0) * 100  # dalam persen
         
-        # Rekomendasi sederhana
+        # Rekomendasi
         if pd.isna(per) or pd.isna(pbv):
             recommendation = "DATA TIDAK LENGKAP"
         elif per < 12 and pbv < 1.5:
@@ -95,63 +110,32 @@ def analyze_stock(ticker):
         st.error(f"Error analisis {ticker}: {str(e)}")
         return None
 
-def plot_stock_chart(ticker):
-    """Plot grafik saham interaktif"""
-    try:
-        data = yf.Ticker(f"{ticker}.JK").history(period="1y")
-        
-        fig = go.Figure(data=[
-            go.Candlestick(
-                x=data.index,
-                open=data['Open'],
-                high=data['High'],
-                low=data['Low'],
-                close=data['Close'],
-                name='Harga'
-            ),
-            go.Scatter(
-                x=data.index,
-                y=data['MA20'],
-                name='MA20',
-                line=dict(color='orange')
-            )
-        ])
-        
-        fig.update_layout(
-            title=f'Grafik {ticker} (1 Tahun)',
-            xaxis_title='Tanggal',
-            yaxis_title='Harga (Rp)',
-            template='plotly_dark'
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    except:
-        st.warning(f"Tidak bisa menampilkan grafik {ticker}")
-
 # =============================================
 # 🖥️ ANTARMUKA STREAMLIT
 # =============================================
 
 def main():
     st.set_page_config(
-        page_title="Analisis Saham BEI",
+        page_title="Analisis Saham BEI dengan TensorFlow",
         layout="wide",
         initial_sidebar_state="expanded"
     )
     
+    check_python_version()
     init_session()
     
-    st.title("📈 Analisis Portofolio Saham BEI")
+    st.title("📈 Analisis Saham BEI dengan TensorFlow")
     st.markdown("""
     **Aplikasi untuk menganalisis saham Bursa Efek Indonesia (IDX)**
-    - Valuasi (PER, PBV, Dividend Yield)
-    - Prediksi harga dengan AI
+    - Prediksi harga dengan model LSTM
+    - Analisis valuasi fundamental
     - Manajemen portofolio
     """)
     
     menu = st.sidebar.radio("Menu", [
         "Portofolio Saya", 
         "Analisis Saham", 
-        "Prediksi AI"
+        "Prediksi TensorFlow"
     ])
     
     if menu == "Portofolio Saya":
@@ -197,7 +181,7 @@ def main():
         ticker = st.text_input("Masukkan Kode Saham (contoh: TLKM)", "").upper()
         
         if ticker:
-            with st.spinner(f"Menganalisis {ticker}..."):
+            with st.spinner(f"Menganalisis {ticker} dengan TensorFlow..."):
                 result = analyze_stock(ticker)
                 if result:
                     col1, col2 = st.columns(2)
@@ -214,18 +198,18 @@ def main():
                     
                     plot_stock_chart(ticker)
     
-    elif menu == "Prediksi AI":
-        st.header("🤖 Prediksi Harga dengan AI")
-        st.warning("Fitur ini menggunakan model sederhana. Hasil tidak menjamin akurasi 100%.")
+    elif menu == "Prediksi TensorFlow":
+        st.header("🤖 Prediksi Harga dengan TensorFlow LSTM")
+        st.info("Fitur ini menggunakan model LSTM untuk prediksi harga saham")
         
         ticker = st.text_input("Kode Saham untuk Prediksi", "BBCA").upper()
-        if st.button("Prediksi"):
-            with st.spinner("Menjalankan model AI..."):
+        if st.button("Jalankan Prediksi"):
+            with st.spinner("Menjalankan model TensorFlow..."):
                 try:
                     stock = yf.Ticker(f"{ticker}.JK")
                     hist = stock.history(period="1y")
                     current_price = hist['Close'].iloc[-1]
-                    predicted = predict_with_lstm(hist['Close'])
+                    predicted = predict_with_tensorflow(hist['Close'])
                     
                     fig = go.Figure()
                     fig.add_trace(go.Scatter(
@@ -241,18 +225,63 @@ def main():
                     ))
                     
                     fig.update_layout(
-                        title=f"Prediksi {ticker}",
+                        title=f"Prediksi {ticker} dengan LSTM",
                         yaxis_title="Harga (Rp)"
                     )
                     st.plotly_chart(fig)
                     
                     st.success(f"""
-                    **Hasil Prediksi:**
+                    **Hasil Prediksi TensorFlow:**
                     - Harga Saat Ini: Rp {current_price:,.0f}
                     - Prediksi 6 Bulan: Rp {predicted:,.0f}
+                    - Perubahan: {((predicted-current_price)/current_price*100):.1f}%
                     """)
-                except:
-                    st.error("Gagal memprediksi. Coba kode saham lain.")
+                except Exception as e:
+                    st.error(f"Gagal memprediksi: {str(e)}")
+
+# =============================================
+# 🛠️ FUNGSI PENDUKUNG
+# =============================================
+
+def calculate_rsi(prices, window=14):
+    """Hitung Relative Strength Index (RSI)"""
+    delta = prices.diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window).mean()
+    rs = gain / loss
+    return 100 - (100 / (1 + rs))
+
+def plot_stock_chart(ticker):
+    """Plot grafik saham interaktif"""
+    try:
+        data = yf.Ticker(f"{ticker}.JK").history(period="1y")
+        
+        fig = go.Figure(data=[
+            go.Candlestick(
+                x=data.index,
+                open=data['Open'],
+                high=data['High'],
+                low=data['Low'],
+                close=data['Close'],
+                name='Harga'
+            ),
+            go.Scatter(
+                x=data.index,
+                y=data['Close'].rolling(20).mean(),
+                name='MA20',
+                line=dict(color='orange')
+            )
+        ])
+        
+        fig.update_layout(
+            title=f'Grafik {ticker} (1 Tahun)',
+            xaxis_title='Tanggal',
+            yaxis_title='Harga (Rp)',
+            template='plotly_dark'
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    except:
+        st.warning(f"Tidak bisa menampilkan grafik {ticker}")
 
 # =============================================
 # 🚀 JALANKAN APLIKASI
