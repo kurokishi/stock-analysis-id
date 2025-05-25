@@ -2,20 +2,16 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import yfinance as yf
-import matplotlib.pyplot as plt
-from datetime import datetime, timedelta
 import plotly.graph_objects as go
 import plotly.express as px
 import requests
 from bs4 import BeautifulSoup
-import json
 import warnings
 warnings.filterwarnings('ignore')
 
-# Konfigurasi awal
 st.set_page_config(layout="wide", page_title="Portofolio Saham Analyzer")
 
-# Fungsi untuk mendapatkan data saham secara aman
+# === Fungsi Backend ===
 def get_stock_data(ticker, period='1y'):
     try:
         stock = yf.Ticker(ticker + ".JK")
@@ -27,7 +23,6 @@ def get_stock_data(ticker, period='1y'):
         st.error(f"Gagal mengambil data historis untuk {ticker}: {e}")
         return None, pd.DataFrame()
 
-# Fungsi untuk menghitung indikator teknikal
 def calculate_technical_indicators(df):
     df['MA50'] = df['Close'].rolling(window=50).mean()
     df['MA200'] = df['Close'].rolling(window=200).mean()
@@ -42,7 +37,6 @@ def calculate_technical_indicators(df):
     df['Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
     return df
 
-# Fungsi untuk mendapatkan data fundamental secara aman
 def get_fundamental_data(ticker):
     try:
         url = f"https://finance.yahoo.com/quote/{ticker}.JK/key-statistics"
@@ -69,7 +63,6 @@ def get_fundamental_data(ticker):
         st.warning(f"Gagal mengambil data fundamental untuk {ticker}: {e}")
         return {'PER': np.nan, 'PBV': np.nan, 'Dividend Yield': np.nan}
 
-# Fungsi untuk mengevaluasi valuasi
 def evaluate_valuation(pe, pb, industry_pe=15, industry_pb=2):
     if pd.isna(pe) or pd.isna(pb):
         return "Data tidak tersedia"
@@ -83,7 +76,6 @@ def evaluate_valuation(pe, pb, industry_pe=15, industry_pb=2):
     else:
         return "Overvalued"
 
-# Fungsi untuk proyeksi dividen
 def calculate_dividend_projection(ticker, shares, current_price):
     try:
         stock = yf.Ticker(ticker + ".JK")
@@ -98,7 +90,6 @@ def calculate_dividend_projection(ticker, shares, current_price):
         st.warning(f"Gagal menghitung dividen untuk {ticker}: {e}")
         return 0
 
-# Fungsi bunga majemuk
 def compound_interest_simulation(initial_value, growth_rate, years, dividend_yield=0, reinvest=True):
     results = []
     current_value = initial_value
@@ -113,7 +104,73 @@ def compound_interest_simulation(initial_value, growth_rate, years, dividend_yie
         })
     return pd.DataFrame(results)
 
-# Catatan: UI dan bagian logika utama aplikasi belum disalin ulang untuk efisiensi.
-# Silakan lanjutkan logika `st.session_state`, UI tab, dan lainnya menggunakan fungsi-fungsi di atas yang sudah diperbaiki.
+def get_recommendation(valuation, ma50, ma200, rsi):
+    if valuation == "Undervalued" and ma50 > ma200 and rsi < 70:
+        return "Beli"
+    elif valuation == "Overvalued" and rsi > 70:
+        return "Jual"
+    else:
+        return "Tahan"
 
-st.success("Fungsi backend telah diperbaiki dan siap digunakan. Silakan lanjutkan dengan UI atau saya bantu lengkapi jika diinginkan.")
+# === UI Antarmuka ===
+st.title("Asisten Analisis Portofolio Saham")
+
+if 'portfolio' not in st.session_state:
+    st.session_state.portfolio = pd.DataFrame(columns=['Ticker', 'Shares', 'Buy Price'])
+
+with st.sidebar:
+    st.header("Tambah Saham")
+    kode = st.text_input("Kode Saham (tanpa .JK)", value="BBCA").upper()
+    lot = st.number_input("Jumlah Lot", value=1, min_value=1)
+    harga_beli = st.number_input("Harga Beli per Saham", value=1000, min_value=1)
+    if st.button("Tambahkan"):
+        saham_baru = {'Ticker': kode, 'Shares': lot * 100, 'Buy Price': harga_beli}
+        st.session_state.portfolio = pd.concat([st.session_state.portfolio, pd.DataFrame([saham_baru])], ignore_index=True)
+        st.success(f"{kode} berhasil ditambahkan.")
+
+st.subheader("Portofolio Saat Ini")
+if st.session_state.portfolio.empty:
+    st.info("Belum ada saham ditambahkan.")
+else:
+    st.dataframe(st.session_state.portfolio)
+
+    total_nilai = 0
+    for idx, row in st.session_state.portfolio.iterrows():
+        ticker = row['Ticker']
+        shares = row['Shares']
+        buy_price = row['Buy Price']
+        stock, hist = get_stock_data(ticker)
+        if hist.empty:
+            continue
+        current_price = hist['Close'].iloc[-1]
+        nilai_saham = shares * current_price
+        total_nilai += nilai_saham
+
+        st.markdown(f"### {ticker}")
+        st.write(f"Harga Saat Ini: Rp{current_price:,.0f}")
+        st.write(f"Nilai: Rp{nilai_saham:,.0f}")
+
+        fundamental = get_fundamental_data(ticker)
+        st.write(f"PER: {fundamental['PER']:.2f} | PBV: {fundamental['PBV']:.2f} | Yield: {fundamental['Dividend Yield']:.2%}")
+        valuasi = evaluate_valuation(fundamental['PER'], fundamental['PBV'])
+        st.write(f"Valuasi: **{valuasi}**")
+
+        hist = calculate_technical_indicators(hist)
+        fig = go.Figure()
+        fig.add_trace(go.Candlestick(x=hist.index, open=hist['Open'], high=hist['High'], low=hist['Low'], close=hist['Close']))
+        fig.add_trace(go.Scatter(x=hist.index, y=hist['MA50'], line=dict(color='blue'), name='MA50'))
+        fig.add_trace(go.Scatter(x=hist.index, y=hist['MA200'], line=dict(color='red'), name='MA200'))
+        fig.update_layout(title=f"Grafik Harga {ticker}", xaxis_title="Tanggal", yaxis_title="Harga")
+        st.plotly_chart(fig, use_container_width=True)
+
+        annual_div = calculate_dividend_projection(ticker, shares, current_price)
+        st.write(f"Perkiraan Dividen Tahunan: Rp{annual_div:,.0f}")
+
+        rsi = hist['RSI'].iloc[-1]
+        ma50 = hist['MA50'].iloc[-1]
+        ma200 = hist['MA200'].iloc[-1]
+        rekomendasi = get_recommendation(valuasi, ma50, ma200, rsi)
+        st.write(f"**Rekomendasi: {rekomendasi}**")
+
+    st.markdown(f"## Total Nilai Portofolio: Rp{total_nilai:,.0f}")
+            
