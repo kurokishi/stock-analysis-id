@@ -2,7 +2,10 @@ import streamlit as st
 from config import AppConfig
 from core.data_provider import StockDataProvider
 from views import DashboardView, AnalysisView, PredictionView
+from core.portfolio import PortfolioAnalyzer
+from views.portfolio import PortfolioView
 
+# Dalam fungsi setup_app():
 def setup_app():
     config = AppConfig()
     data_provider = StockDataProvider(config.cache_dir, config.cache_ttl)
@@ -18,7 +21,8 @@ def setup_app():
         'data_provider': data_provider,
         'dashboard_view': DashboardView(data_provider),
         'analysis_view': AnalysisView(data_provider),
-        'prediction_view': PredictionView(data_provider)
+        'prediction_view': PredictionView(data_provider),
+        'portfolio_view' : PortfolioView(data_provider)
     }
 
 def main():
