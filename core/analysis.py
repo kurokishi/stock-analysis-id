@@ -1,11 +1,14 @@
+import pandas as pd
+import numpy as np
 from models.stock import StockData, StockInfo  # Tambahkan ini
 from models.prediction import PredictionResult
-import pandas as pd
-import numpy as np
-import numpy as np
-import pandas as pd
-from models.stock import StockData
 
+class FundamentalAnalyzer:
+    @staticmethod
+    def analyze_financials(stock_info: StockInfo):
+        # Implementasi analisis fundamental
+        pass
+# Tambahkan impor StockInfo di bagian atas file
 class TechnicalAnalyzer:
     @staticmethod
     def calculate_rsi(prices, window=14):
@@ -49,9 +52,3 @@ class TechnicalAnalyzer:
             closes=df['Close'].to_list(),
             volumes=df['Volume'].to_list()
         )
-
-class FundamentalAnalyzer:
-    @staticmethod
-    def analyze_financials(stock_info: StockInfo):
-        # Implementasi analisis fundamental
-        pass
