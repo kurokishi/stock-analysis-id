@@ -7,23 +7,21 @@ class DashboardView:
         self.data_provider = data_provider
         self.components = StockComponents()
 
-    def show(self, ticker):
-        st.subheader("📈 Dashboard Saham")
-        stock_data = self.data_provider.get_stock_data(ticker)
-        
-        if not stock_data.dates:
-            st.warning("Data saham tidak tersedia")
-            return
-            
-        self.components.display_stock_chart(
-            stock_data.__dict__,
-            ticker
-        )
-        self.components.display_quick_stats(stock_data.__dict__)
-        
-        st.subheader("📊 Info Fundamental")
-        stock_info = self.data_provider.get_stock_info(ticker)
-        st.json(stock_info.get_summary())
+    # Di views/dashboard.py
+def show(self, ticker):
+    stock_data = self.data_provider.get_stock_data(ticker)
+    if not stock_data:
+        st.warning("Data saham tidak tersedia")
+        return
+    
+    # Konversi ke DataFrame sebelum dikirim ke components
+    df = pd.DataFrame({
+        'dates': stock_data.dates,
+        'closes': stock_data.closes,
+        'volumes': stock_data.volumes
+    })
+    
+    self.components.display_stock_chart(df, ticker)
 
     def show_portfolio_simulation(self, ticker):
         # Implementasi simulasi portofolio
