@@ -38,9 +38,12 @@ class StockInfo:
     country: str
     currency: str
     market_cap: float
-    pe_ratio: Optional[float]
-    pb_ratio: Optional[float]
-    dividend_yield: Optional[float]
+    pe_ratio: Optional[float] = None
+    pb_ratio: Optional[float] = None
+    dividend_yield: Optional[float] = None
+    roe: Optional[float] = None  # Return on Equity
+    roa: Optional[float] = None  # Return on Assets
+    debt_to_equity: Optional[float] = None
     
     def get_summary(self) -> Dict[str, str]:
         """Return summary as dictionary"""
