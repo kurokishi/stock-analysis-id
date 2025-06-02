@@ -37,3 +37,33 @@ class StockComponents:
                      f"{pct_change:.2f}%")
         with col3:
             st.metric("Volume Hari Ini", f"{data['volumes'][-1]:,}".replace(",", "."))
+
+def display_technical_charts(self, stock_data, ticker):
+    """Tampilkan grafik teknikal"""
+    df = pd.DataFrame({
+        'date': stock_data.dates,
+        'close': stock_data.closes,
+        'SMA_20': stock_data.indicators.get('sma_20', []),
+        'SMA_50': stock_data.indicators.get('sma_50', []),
+        'RSI': stock_data.indicators.get('rsi', []),
+        'MACD': stock_data.indicators.get('macd', [])
+    })
+    
+    # Grafik harga dan moving average
+    fig1 = go.Figure()
+    fig1.add_trace(go.Scatter(x=df['date'], y=df['close'], name='Harga'))
+    if 'SMA_20' in df:
+        fig1.add_trace(go.Scatter(x=df['date'], y=df['SMA_20'], name='SMA 20'))
+    if 'SMA_50' in df:
+        fig1.add_trace(go.Scatter(x=df['date'], y=df['SMA_50'], name='SMA 50'))
+    fig1.update_layout(title=f"Moving Averages - {ticker}")
+    st.plotly_chart(fig1, use_container_width=True)
+    
+    # Grafik RSI jika ada
+    if 'RSI' in df:
+        fig2 = go.Figure()
+        fig2.add_trace(go.Scatter(x=df['date'], y=df['RSI'], name='RSI'))
+        fig2.add_hline(y=30, line_dash="dash", line_color="green")
+        fig2.add_hline(y=70, line_dash="dash", line_color="red")
+        fig2.update_layout(title=f"RSI (14) - {ticker}")
+        st.plotly_chart(fig2, use_container_width=True)
