@@ -9,11 +9,10 @@ from views import (
     portfolio_simulation,
     compare_stocks
 )
+
 def main():
-    # Setup konfigurasi
     Config.setup()
     
-    # UI Header
     st.title("📊 Analisis Saham Lengkap + AI Prediksi")
     
     # Sidebar navigation
@@ -51,7 +50,7 @@ def main():
     else:
         ticker = tickers[0]
         if app_mode == "Dashboard Utama":
-            show_dashboard(ticker)
+            show_dashboard(ticker)  # Panggil dengan parameter ticker
         elif app_mode == "Analisis Fundamental":
             show_fundamental_analysis(ticker)
         elif app_mode == "Analisis Teknikal":
