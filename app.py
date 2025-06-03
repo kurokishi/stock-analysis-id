@@ -51,24 +51,33 @@ def main():
         st.warning("Silakan masukkan minimal satu kode saham")
         return
     
-    if app_mode == "Perbandingan Saham":
-        app['dashboard_view'].compare_stocks(tickers)
-    elif len(tickers) > 1:
-        st.warning(f"Mode '{app_mode}' hanya tersedia untuk analisis satu saham")
-        st.info("Sedang menampilkan mode Perbandingan Saham sebagai gantinya")
-        app['dashboard_view'].compare_stocks(tickers)
-    else:
-        ticker = tickers[0]
-        if app_mode == "Dashboard Utama":
-            app['dashboard_view'].show(ticker)
-        elif app_mode == "Analisis Fundamental":
-            app['analysis_view'].show_fundamental(ticker)
-        elif app_mode == "Analisis Teknikal":
-            app['analysis_view'].show_technical(ticker)
-        elif app_mode == "Prediksi Harga":
-            app['prediction_view'].show(ticker)
-        elif app_mode == "Simulasi Portofolio":
-            app['dashboard_view'].show_portfolio_simulation(ticker)
+    try:
+        if app_mode == "Perbandingan Saham":
+            # Ganti dengan method yang sesuai jika compare_stocks tidak ada
+            if hasattr(app['dashboard_view'], 'compare_stocks'):
+                app['dashboard_view'].compare_stocks(tickers)
+            else:
+                st.warning("Fitur perbandingan saham belum tersedia")
+                app['dashboard_view'].show(tickers[0])  # Fallback ke tampilan default
+        elif len(tickers) > 1:
+            st.warning(f"Mode '{app_mode}' hanya tersedia untuk analisis satu saham")
+            st.info("Sedang menampilkan Dashboard Utama untuk saham pertama")
+            app['dashboard_view'].show(tickers[0])
+        else:
+            ticker = tickers[0]
+            if app_mode == "Dashboard Utama":
+                app['dashboard_view'].show(ticker)
+            elif app_mode == "Analisis Fundamental":
+                app['analysis_view'].show_fundamental(ticker)
+            elif app_mode == "Analisis Teknikal":
+                app['analysis_view'].show_technical(ticker)
+            elif app_mode == "Prediksi Harga":
+                app['prediction_view'].show(ticker)
+            elif app_mode == "Simulasi Portofolio":
+                app['dashboard_view'].show_portfolio_simulation(ticker)
+    except Exception as e:
+        st.error(f"Terjadi kesalahan: {str(e)}")
+        st.info("Silakan coba lagi atau hubungi developer")
 
 if __name__ == "__main__":
     main()
