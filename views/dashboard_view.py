@@ -1,18 +1,19 @@
+# views/dashboard_view.py
 import streamlit as st
 import plotly.graph_objects as go
 from utils.data_fetcher import DataFetcher
 from utils.formatter import format_rupiah
+from utils.validator import StockValidator
 from views.fundamental_view import show_fundamental_analysis
 from views.news_sentiment import get_news_sentiment
-# Di file yang menggunakan validator
-from utils.validator import StockValidator
-
-# Cara penggunaan
-if not StockValidator.validate_ticker(ticker):
-    st.error("Format ticker tidak valid")
 
 def show_dashboard(ticker):
     """Menampilkan dashboard utama untuk satu saham"""
+    # Pindahkan validasi ke dalam fungsi
+    if not StockValidator.validate_ticker(ticker):
+        st.error("Format ticker tidak valid")
+        return
+    
     st.subheader("📈 Grafik Harga Saham")
     data = DataFetcher.get_stock_data(ticker)
     
