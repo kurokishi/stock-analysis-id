@@ -4,6 +4,12 @@ from utils.data_fetcher import DataFetcher
 from utils.formatter import format_rupiah
 from views.fundamental_view import show_fundamental_analysis
 from views.news_sentiment import get_news_sentiment
+# Di file yang menggunakan validator
+from utils.validator import StockValidator
+
+# Cara penggunaan
+if not StockValidator.validate_ticker(ticker):
+    st.error("Format ticker tidak valid")
 
 def show_dashboard(ticker):
     """Menampilkan dashboard utama untuk satu saham"""
