@@ -1,7 +1,10 @@
-class AppConfig:
-    def __init__(self):
-        self.app_title = "Analisis Saham Lengkap + AI Prediksi"
-        self.cache_dir = "cache"
-        self.cache_ttl = 1  # in hours
-        self.default_tickers = ["UNVR.JK", "BBCA.JK", "TLKM.JK"]
-        self.max_prediction_days = 90
+import os
+
+class Config:
+    CACHE_DIR = "cache"
+    CACHE_TTL_HOURS = 1
+    DEFAULT_TICKERS = ["UNVR.JK", "BBCA.JK", "TLKM.JK"]
+    
+    @staticmethod
+    def setup():
+        os.makedirs(Config.CACHE_DIR, exist_ok=True)
