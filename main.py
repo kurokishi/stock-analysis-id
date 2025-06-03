@@ -1,12 +1,14 @@
+# main.py
 import streamlit as st
 from config import Config
-from views.dashboard_view import show_dashboard
-from views.fundamental_view import show_fundamental_analysis
-from views.technical_view import show_technical_analysis
-from views.prediction_view import show_price_prediction
-from views.portfolio_view import portfolio_simulation
-from views.comparison_view import compare_stocks
-
+from views import (
+    show_dashboard,
+    show_fundamental_analysis,
+    show_technical_analysis,
+    show_price_prediction,
+    portfolio_simulation,
+    compare_stocks
+)
 def main():
     # Setup konfigurasi
     Config.setup()
