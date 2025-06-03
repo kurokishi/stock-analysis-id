@@ -1,12 +1,11 @@
+# utils/validator.py
 import re
-from datetime import datetime, timedelta
-import pandas as pd
+from datetime import datetime
 
 class StockValidator:
     @staticmethod
     def validate_ticker(ticker):
         """Validasi format ticker saham"""
-        # Contoh: BBCA.JK, UNVR.JK, atau AAPL (untuk US stock)
         pattern = r'^[A-Z]{1,5}(\.[A-Z]{2})?$'
         return bool(re.match(pattern, ticker))
 
@@ -19,10 +18,9 @@ class StockValidator:
             return False, "Tanggal akhir tidak boleh di masa depan"
         return True, ""
 
-    @staticmethod
-    def validate_investment_amount(amount):
-        """Validasi jumlah investasi"""
-        return amount >= 100000  # Minimal Rp100.000
+# Fungsi tambahan jika diperlukan
+def validate_investment_amount(amount):
+    return amount >= 100000
 
     @staticmethod
     def validate_prediction_days(days):
