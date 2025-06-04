@@ -42,3 +42,22 @@ class DataFetcher:
         df = pd.read_csv(cache_path, index_col=0, parse_dates=True)
         df.index = df.index.tz_localize(None)
         return df
+
+def get_fundamental_data(ticker):
+    try:
+        # Ganti dengan API/data source yang Anda gunakan
+        data = yf.Ticker(ticker).balance_sheet
+        
+        # Debugging - tampilkan kolom yang tersedia
+        print("Kolom yang tersedia:", data.columns.tolist())
+        
+        # Handle penamaan kolom alternatif
+        data = data.rename(columns={
+            'Total Liabilities': 'Total Liab',
+            'Total Equity': 'Total Stockholder Equity'
+        })
+        
+        return data
+    except Exception as e:
+        print(f"Error mendapatkan data fundamental: {str(e)}")
+        return None
