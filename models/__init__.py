@@ -1,10 +1,8 @@
-from .stock import StockData, StockInfo
-from .prediction import PredictionResult, ForecastInterval, ModelType
+# models/__init__.py
+from .prophet_model import ProphetModel
+from .arima_model import ARIMAModel
 
 __all__ = [
-    'StockData',
-    'StockInfo',
-    'PredictionResult',
-    'ForecastInterval',
-    'ModelType'
+    'ProphetModel',
+    'ARIMAModel'
 ]
