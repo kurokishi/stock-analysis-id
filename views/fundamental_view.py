@@ -7,6 +7,30 @@ from utils.data_fetcher import DataFetcher  # Pastikan diimpor
 
 def show_fundamental_analysis(ticker):
     try:
+        # 1. Setup session dengan headers
+        session = requests.Session()
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0',
+            'Accept': '*/*',
+            'Accept-Language': 'en-US,en;q=0.9'
+        })
+        
+        # 2. Gunakan yfinance dengan timeout
+        stock = yf.Ticker(
+            ticker,
+            session=session
+        )
+        
+        # 3. Cek ketersediaan data
+        if not stock.info:
+            st.error("Data tidak tersedia untuk saham ini")
+            return
+            
+        # ... (lanjutkan dengan kode visualisasi Anda)
+        
+    except Exception as e:
+        st.error(f"Gagal memuat data: {str(e)}")
+        st.info("Coba refresh halaman atau coba lagi nanti")
         # Ambil data sekaligus dari yfinance
         stock = yf.Ticker(ticker)
         info = stock.info
