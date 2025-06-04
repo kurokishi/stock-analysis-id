@@ -26,12 +26,12 @@ def show_dashboard(ticker):
 
     # Visualisasi Plotly
     fig = Figure()
-    fig.add_trace(Scatter
+    fig.add_trace(Scatter(
         x=data.index, 
         y=data['Close'], 
         name='Harga Penutupan',
         line=dict(color='#1f77b4')
-    )
+    ))
     fig.update_layout(
         title=f"Performa Saham {ticker}",
         xaxis_title="Tanggal",
