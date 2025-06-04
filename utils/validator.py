@@ -6,10 +6,6 @@ class StockValidator:
     @staticmethod
     def validate_ticker(ticker):
         """Validasi format ticker saham"""
-        # Contoh validasi sederhana:
-        # - Pastikan ticker adalah string
-        # - Panjang minimal 2 karakter
-        # - Hanya mengandung huruf dan angka
         if not isinstance(ticker, str):
             return False
         if len(ticker) < 2:
@@ -30,9 +26,27 @@ class StockValidator:
             return False, "Tanggal akhir tidak boleh di masa depan"
         return True, ""
 
+    @staticmethod
+    def validate_prediction_days(days):
+        """Validasi hari prediksi"""
+        return 1 <= days <= 365  # Between 1 day and 1 year
+
+    @staticmethod
+    def validate_dataframe_for_analysis(df, min_days=30):
+        """Validasi DataFrame untuk analisis"""
+        if df.empty:
+            return False, "Data kosong"
+        if len(df) < min_days:
+            return False, f"Data historis kurang dari {min_days} hari"
+        if 'Close' not in df.columns:
+            return False, "Kolom 'Close' tidak ditemukan"
+        return True, ""
+
 # Fungsi tambahan jika diperlukan
 def validate_investment_amount(amount):
     return amount >= 100000
+    def validate_date_range(start_date, end_date):
+    
 
     @staticmethod
     def validate_prediction_days(days):
