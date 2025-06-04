@@ -1,40 +1,32 @@
 import streamlit as st
 import yfinance as yf
 import matplotlib.pyplot as plt
+import requests  # Pastikan diimpor
 from utils.formatter import format_rupiah
 from utils.validator import StockValidator
-from utils.data_fetcher import DataFetcher  # Pastikan diimpor
 
 def show_fundamental_analysis(ticker):
     try:
-        # 1. Setup session dengan headers
+        # 1. Setup session dengan headers custom
         session = requests.Session()
         session.headers.update({
-            'User-Agent': 'Mozilla/5.0',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
             'Accept': '*/*',
             'Accept-Language': 'en-US,en;q=0.9'
         })
         
-        # 2. Gunakan yfinance dengan timeout
+        # 2. Gunakan yfinance dengan custom session
         stock = yf.Ticker(
             ticker,
             session=session
         )
         
         # 3. Cek ketersediaan data
-        if not stock.info:
+        info = stock.info
+        if not info:
             st.error("Data tidak tersedia untuk saham ini")
             return
             
-        # ... (lanjutkan dengan kode visualisasi Anda)
-        
-    except Exception as e:
-        st.error(f"Gagal memuat data: {str(e)}")
-        st.info("Coba refresh halaman atau coba lagi nanti")
-        # Ambil data sekaligus dari yfinance
-        stock = yf.Ticker(ticker)
-        info = stock.info
-        
         # Layout kolom
         col1, col2, col3 = st.columns(3)
         
@@ -67,40 +59,51 @@ def show_fundamental_analysis(ticker):
         tab1, tab2, tab3 = st.tabs(["Income Statement", "Balance Sheet", "Cash Flow"])
         
         with tab1:
-            financials = stock.financials
-            if not financials.empty:
-                available_cols = [col for col in ['Total Revenue', 'Net Income'] if col in financials.index]
-                if available_cols:
-                    fig, ax = plt.subplots(figsize=(10, 4))
-                    financials.loc[available_cols].T.plot(kind='bar', ax=ax)
-                    st.pyplot(fig)
-                else:
-                    st.warning("Kolom income statement tidak tersedia")
+            try:
+                financials = stock.financials
+                if not financials.empty:
+                    available_cols = [col for col in ['Total Revenue', 'Net Income'] 
+                                    if col in financials.index]
+                    if available_cols:
+                        fig, ax = plt.subplots(figsize=(10, 4))
+                        financials.loc[available_cols].T.plot(kind='bar', ax=ax)
+                        st.pyplot(fig)
+                    else:
+                        st.warning("Kolom income statement tidak tersedia")
+            except Exception as e:
+                st.warning(f"Gagal memuat income statement: {str(e)}")
         
         with tab2:
-            balance_sheet = stock.balance_sheet
-            if not balance_sheet.empty:
-                available_cols = [col for col in ['Total Assets', 'Total Liab', 'Total Stockholder Equity'] 
-                                if col in balance_sheet.index]
-                if available_cols:
-                    fig, ax = plt.subplots(figsize=(10, 4))
-                    balance_sheet.loc[available_cols].T.plot(kind='bar', ax=ax)
-                    st.pyplot(fig)
-                else:
-                    st.warning("Kolom balance sheet tidak tersedia")
-                    st.info(f"Kolom yang ada: {balance_sheet.index.tolist()}")
+            try:
+                balance_sheet = stock.balance_sheet
+                if not balance_sheet.empty:
+                    available_cols = [col for col in ['Total Assets', 'Total Liab', 'Total Stockholder Equity'] 
+                                    if col in balance_sheet.index]
+                    if available_cols:
+                        fig, ax = plt.subplots(figsize=(10, 4))
+                        balance_sheet.loc[available_cols].T.plot(kind='bar', ax=ax)
+                        st.pyplot(fig)
+                    else:
+                        st.warning("Kolom balance sheet tidak tersedia")
+                        st.info(f"Kolom yang ada: {balance_sheet.index.tolist()}")
+            except Exception as e:
+                st.warning(f"Gagal memuat balance sheet: {str(e)}")
         
         with tab3:
-            cashflow = stock.cashflow
-            if not cashflow.empty:
-                available_cols = [col for col in ['Operating Cashflow', 'Investing Cashflow', 'Financing Cashflow'] 
-                                if col in cashflow.index]
-                if available_cols:
-                    fig, ax = plt.subplots(figsize=(10, 4))
-                    cashflow.loc[available_cols].T.plot(kind='bar', ax=ax)
-                    st.pyplot(fig)
-                else:
-                    st.warning("Kolom cash flow tidak tersedia")
-    
+            try:
+                cashflow = stock.cashflow
+                if not cashflow.empty:
+                    available_cols = [col for col in ['Operating Cashflow', 'Investing Cashflow', 'Financing Cashflow'] 
+                                    if col in cashflow.index]
+                    if available_cols:
+                        fig, ax = plt.subplots(figsize=(10, 4))
+                        cashflow.loc[available_cols].T.plot(kind='bar', ax=ax)
+                        st.pyplot(fig)
+                    else:
+                        st.warning("Kolom cash flow tidak tersedia")
+            except Exception as e:
+                st.warning(f"Gagal memuat cash flow: {str(e)}")
+                
     except Exception as e:
         st.error(f"Gagal memuat data fundamental: {str(e)}")
+        st.info("Coba beberapa saat lagi atau gunakan ticker yang berbeda")
