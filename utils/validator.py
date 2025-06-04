@@ -45,7 +45,7 @@ class StockValidator:
 # Fungsi tambahan jika diperlukan
 def validate_investment_amount(amount):
     return amount >= 100000
-    def validate_date_range(start_date, end_date):
+    #def validate_date_range(start_date, end_date):
     
 
     @staticmethod
