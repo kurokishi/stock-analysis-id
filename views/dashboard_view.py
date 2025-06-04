@@ -9,11 +9,21 @@ from views.news_sentiment import get_news_sentiment
 
 def show_dashboard(ticker):
     """Menampilkan dashboard utama untuk satu saham"""
-    # Pindahkan validasi ke dalam fungsi
-if not ticker or not isinstance(ticker, str):  # Validasi sangat sederhana
+    # Validasi input
+    if not ticker or not isinstance(ticker, str):
+        st.error("Format ticker tidak valid")
+        return
     
     st.subheader("📈 Grafik Harga Saham")
     data = DataFetcher.get_stock_data(ticker)
+    
+    # Tambahkan kode visualisasi dan analisis di sini
+    if data is not None:
+        st.line_chart(data['Close'])
+        st.write(f"Harga terakhir: {format_rupiah(data['Close'].iloc[-1])}")
+    else:
+        st.error("Gagal memuat data saham")
+
     
     if not data.empty:
         # Plot harga saham
