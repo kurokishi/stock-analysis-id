@@ -10,9 +10,7 @@ from views.news_sentiment import get_news_sentiment
 def show_dashboard(ticker):
     """Menampilkan dashboard utama untuk satu saham"""
     # Pindahkan validasi ke dalam fungsi
-    if not StockValidator.validate_ticker(ticker):
-        st.error("Format ticker tidak valid")
-        return
+if not ticker or not isinstance(ticker, str):  # Validasi sangat sederhana
     
     st.subheader("📈 Grafik Harga Saham")
     data = DataFetcher.get_stock_data(ticker)
