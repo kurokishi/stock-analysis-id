@@ -1,9 +1,8 @@
 # views/dashboard_view.py
 import streamlit as st
-import plotly.graph_objects as go
+from plotly.graph_objects import Figure, Scatter
 from utils.data_fetcher import DataFetcher
 from utils.formatter import format_rupiah
-from utils.validator import StockValidator
 from views.fundamental_view import show_fundamental_analysis
 from views.news_sentiment import get_news_sentiment
 
@@ -14,45 +13,53 @@ def show_dashboard(ticker):
         st.error("Format ticker tidak valid")
         return
     
-    st.subheader("📈 Grafik Harga Saham")
+    st.subheader(f"📈 Dashboard Saham {ticker}")
     data = DataFetcher.get_stock_data(ticker)
     
-    # Tambahkan kode visualisasi dan analisis di sini
-    if data is not None:
-        st.line_chart(data['Close'])
-        st.write(f"Harga terakhir: {format_rupiah(data['Close'].iloc[-1])}")
-    else:
+    if data is None or data.empty:
         st.error("Gagal memuat data saham")
+        return
+        
+    if len(data) < 2:
+        st.warning("Data historis tidak cukup")
+        return
 
+    # Visualisasi Plotly
+    fig = Figure()
+    fig.add_trace(Scatter(
+        x=data.index, 
+        y=data['Close'], 
+        name='Harga Penutupan',
+        line=dict(color='#1f77b4')
+    )
+    fig.update_layout(
+        title=f"Performa Saham {ticker}",
+        xaxis_title="Tanggal",
+        yaxis_title="Harga (Rp)",
+        hovermode="x unified"
+    )
+    st.plotly_chart(fig, use_container_width=True)
     
-    if not data.empty:
-        # Plot harga saham
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=data.index, 
-            y=data['Close'], 
-            name='Harga Penutupan'
-        ))
-        fig.update_layout(
-            title=f"Harga Saham {ticker}",
-            xaxis_title="Tanggal",
-            yaxis_title="Harga (Rp)"
+    # Statistik utama
+    col1, col2, col3 = st.columns(3)
+    last_close = data['Close'].iloc[-1]
+    
+    with col1:
+        st.metric("Harga Terakhir", format_rupiah(last_close))
+        
+    with col2:
+        change = last_close - data['Close'].iloc[-2]
+        pct_change = (change / data['Close'].iloc[-2]) * 100
+        st.metric(
+            "Perubahan Hari Ini", 
+            f"{format_rupiah(change)} ({pct_change:.2f}%)",
+            delta_color="inverse"
         )
-        st.plotly_chart(fig, use_container_width=True)
         
-        # Statistik cepat
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Harga Terakhir", format_rupiah(data['Close'].iloc[-1]))
-        with col2:
-            change = data['Close'].iloc[-1] - data['Close'].iloc[-2]
-            pct_change = (change / data['Close'].iloc[-2]) * 100
-            st.metric("Perubahan Hari Ini", format_rupiah(change), f"{pct_change:.2f}%")
-        with col3:
-            st.metric("Volume Hari Ini", f"{data['Volume'].iloc[-1]:,}".replace(",", "."))
-        
-        # Analisis fundamental dan sentimen berita
-        show_fundamental_analysis(ticker)
-        get_news_sentiment(ticker)
-    else:
-        st.warning("Data saham tidak tersedia")
+    with col3:
+        vol = int(data['Volume'].iloc[-1]/1000)
+        st.metric("Volume", f"{vol:,}K".replace(",", "."))
+    
+    # Komponen tambahan
+    show_fundamental_analysis(ticker)
+    get_news_sentiment(ticker)
