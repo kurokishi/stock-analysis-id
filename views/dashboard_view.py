@@ -26,7 +26,7 @@ def show_dashboard(ticker):
 
     # Visualisasi Plotly
     fig = Figure()
-    fig.add_trace(Scatter(
+    fig.add_trace(Scatter
         x=data.index, 
         y=data['Close'], 
         name='Harga Penutupan',
