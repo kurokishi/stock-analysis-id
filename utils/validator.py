@@ -4,10 +4,11 @@ from datetime import datetime
 
 class StockValidator:
     @staticmethod
-    def validate_ticker(ticker):
-        """Validasi format ticker saham"""
-        pattern = r'^[A-Z]{1,5}(\.[A-Z]{2})?$'
-        return bool(re.match(pattern, ticker))
+    def filter_valid_tickers(tickers):
+        # Implementasi logika validasi ticker di sini
+        # Contoh sederhana:
+        valid_tickers = [t for t in tickers if t and isinstance(t, str)]
+        return valid_tickers
 
     @staticmethod
     def validate_date_range(start_date, end_date):
