@@ -4,11 +4,22 @@ from datetime import datetime
 
 class StockValidator:
     @staticmethod
+    def validate_ticker(ticker):
+        """Validasi format ticker saham"""
+        # Contoh validasi sederhana:
+        # - Pastikan ticker adalah string
+        # - Panjang minimal 2 karakter
+        # - Hanya mengandung huruf dan angka
+        if not isinstance(ticker, str):
+            return False
+        if len(ticker) < 2:
+            return False
+        return ticker.isalnum()
+        
+    @staticmethod
     def filter_valid_tickers(tickers):
-        # Implementasi logika validasi ticker di sini
-        # Contoh sederhana:
-        valid_tickers = [t for t in tickers if t and isinstance(t, str)]
-        return valid_tickers
+        """Filter list ticker yang valid"""
+        return [t for t in tickers if StockValidator.validate_ticker(t)]
 
     @staticmethod
     def validate_date_range(start_date, end_date):
