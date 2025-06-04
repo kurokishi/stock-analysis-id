@@ -5,10 +5,25 @@ from utils.formatter import format_rupiah
 from utils.validator import StockValidator
 
 def show_fundamental_analysis(ticker):
-    """Menampilkan analisis fundamental saham"""
-    try:
-        st.subheader("📊 Analisis Fundamental")
+    data = DataFetcher.get_fundamental_data(ticker)
+    
+    if data is None or data.empty:
+        st.error("Data fundamental tidak tersedia")
+        return
         
+    # Cek kolom yang diperlukan
+    required_columns = ['Total Liab', 'Total Stockholder Equity']
+    missing_cols = [col for col in required_columns if col not in data.columns]
+    
+    if missing_cols:
+        st.error(f"Kolom {missing_cols} tidak ditemukan dalam data")
+        st.info(f"Kolom yang tersedia: {list(data.columns)}")
+        return
+    
+    # Lanjutkan proses jika semua kolom ada
+    total_liab = data['Total Liab'].iloc[0]
+    total_equity = data['Total Stockholder Equity'].iloc[0]
+    # ... rest of your code
         # Ambil data fundamental
         stock = yf.Ticker(ticker)
         info = stock.info
