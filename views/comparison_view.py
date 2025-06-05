@@ -6,14 +6,23 @@ from utils.data_fetcher import DataFetcher
 from utils.validator import StockValidator
 
 def compare_stocks(tickers):
-    """Menampilkan perbandingan antar saham"""
     st.subheader("🆚 Perbandingan Saham")
     
+    # Debug: Tampilkan input ticker
+    st.write("Input tickers:", tickers)
+    
     # Validasi input
-    valid_tickers = StockValidator.filter_valid_tickers(tickers)
-    if len(valid_tickers) < 2:
-        st.warning("Masukkan minimal 2 kode saham yang valid untuk dibandingkan")
-        return
+    try:
+        valid_tickers = StockValidator.filter_valid_tickers(tickers)
+        st.write("Valid tickers:", valid_tickers)  # Debug
+        
+        if len(valid_tickers) < 2:
+            st.warning(f"""
+            Masukkan minimal 2 kode saham yang valid untuk dibandingkan.
+            Contoh format: ['BBCA.JK', 'TLKM.JK'] atau ['AAPL', 'MSFT']
+            Ticker yang dimasukkan: {tickers}
+            """)
+            return
     
     # Ambil data untuk semua ticker
     data = {}
