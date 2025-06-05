@@ -8,34 +8,34 @@ from utils.validator import StockValidator
 def compare_stocks(tickers):
     st.subheader("🆚 Perbandingan Saham")
     
-    # Debug: Tampilkan input ticker
-    st.write("Input tickers:", tickers)
-    
     # Validasi input
+    if not tickers or len(tickers) < 2:
+        st.warning("""
+        Masukkan minimal 2 kode saham yang valid untuk dibandingkan.
+        Contoh format: ['BBCA.JK', 'TLKM.JK'] atau ['AAPL', 'MSFT']
+        """)
+        return
+    
     try:
         valid_tickers = StockValidator.filter_valid_tickers(tickers)
-        st.write("Valid tickers:", valid_tickers)  # Debug
+        st.write("Ticker yang divalidasi:", valid_tickers)  # Debug
         
         if len(valid_tickers) < 2:
             st.warning(f"""
-            Masukkan minimal 2 kode saham yang valid untuk dibandingkan.
-            Contoh format: ['BBCA.JK', 'TLKM.JK'] atau ['AAPL', 'MSFT']
+            Hanya ditemukan {len(valid_tickers)} ticker valid.
             Ticker yang dimasukkan: {tickers}
+            Ticker valid: {valid_tickers}
             """)
             return
-    
-    # Ambil data untuk semua ticker
-    data = {}
-    for ticker in valid_tickers:
-        df = DataFetcher.get_stock_data(ticker)
-        if not df.empty:
-            data[ticker] = df['Close']
-        else:
-            st.warning(f"Data untuk {ticker} tidak tersedia")
-    
-    if len(data) < 2:
-        st.error("Tidak cukup data saham yang valid untuk perbandingan")
-        return
+            
+        # Ambil data untuk semua ticker
+        data = {}
+        for ticker in valid_tickers:
+            df = DataFetcher.get_stock_data(ticker)
+            if not df.empty:
+                data[ticker] = df['Close']
+            else:
+                st.warning(f"Data untuk {ticker} tidak tersedia")
     
     # Normalisasi harga untuk perbandingan
     comparison_df = pd.DataFrame(data).dropna()
@@ -127,3 +127,6 @@ def compare_stocks(tickers):
     st.plotly_chart(fig2, use_container_width=True)
     
     st.caption(f"Periode analisis: {start_date} hingga {end_date}")
+    
+except Exception as e:
+        st.error(f"Terjadi error saat memproses perbandingan: {str(e)}")
