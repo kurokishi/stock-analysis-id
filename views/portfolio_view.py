@@ -95,15 +95,12 @@ def portfolio_simulation(ticker):
         ))  # <-- Penutupan kurung yang benar
         
         # Konversi tanggal investasi ke string
-        investment_date_str = investment_date.strftime('%Y-%m-%d')
-        
-        fig.add_vline(
-            x=investment_date_str,
-            line_dash="dash",
-            line_color="red",
-            annotation_text="Investasi Awal",
-            annotation_position="top"
-        )
+        fig.update_xaxes(type='date')  # Ensure x-axis handles dates
+fig.add_vline(
+    x=investment_date,  # Pass the datetime object directly
+    line_dash="dash",
+    line_color="red",
+)
         
         fig.update_layout(
             title="Perkembangan Nilai Portofolio",
