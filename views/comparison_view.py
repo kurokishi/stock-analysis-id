@@ -31,7 +31,6 @@ def compare_stocks(tickers):
             """)
             return
             
-        # ... (lanjutkan dengan kode pengambilan data dan visualisasi)
         # Ambil data untuk semua ticker
         data = {}
         for ticker in valid_tickers:
