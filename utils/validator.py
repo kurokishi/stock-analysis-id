@@ -3,14 +3,14 @@ import re
 from datetime import datetime
 
 class StockValidator:
-  @staticmethod
-  def validate_investment_amount(amount):
+    @staticmethod
+    def validate_investment_amount(amount):
         """Validasi jumlah investasi minimal Rp100.000"""
         try:
             return float(amount) >= 100000
         except (ValueError, TypeError):
             return False
-  
+
     @staticmethod
     def validate_ticker(ticker):
         """Validasi format ticker saham"""
@@ -59,7 +59,3 @@ class StockValidator:
         if 'Close' not in df.columns:
             return False, "Kolom 'Close' tidak ditemukan"
         return True, ""
-
-# Fungsi tambahan jika diperlukan
-def validate_investment_amount(amount):
-    return amount >= 100000
