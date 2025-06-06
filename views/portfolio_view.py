@@ -88,12 +88,17 @@ def portfolio_simulation(ticker):
             name='Nilai Portofolio',
             line=dict(color='green')
         ))
+       
+          if isinstance(investment_date, pd.Timestamp):
+            investment_date = investment_date.to_pydatetime()
+
         fig.add_vline(
-            x=investment_date, 
-            line_dash="dash", 
+            x=investment_date,
+            line_dash="dash",
             line_color="red",
-            annotation_text="Mulai Investasi"
-        )
+            annotation_text="Investasi Awal",
+            annotation_position="top"
+         )
         fig.update_layout(
             title="Perkembangan Nilai Portofolio",
             xaxis_title="Tanggal",
