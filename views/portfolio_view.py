@@ -84,23 +84,22 @@ def portfolio_simulation(ticker):
         st.subheader("📈 Kinerja Portofolio")
         fig = go.Figure()
         
-        # Konversi index untuk Plotly
-        dates = data.index.astype(str)
+        # PERBAIKAN UTAMA: Format yang benar untuk add_trace
+        fig.add_trace(
+            go.Scatter(
+                x=data.index,
+                y=data['Close'] / start_price * initial_investment,
+                name='Nilai Portofolio',
+                line=dict(color='green')
+            )
+        )  # Semua tanda kurung sekarang tertutup dengan benar
         
-        # PERBAIKAN UTAMA: Menutup semua tanda kurung dengan benar
-        fig.add_trace(go.Scatter(
-            x=dates,
-            y=data['Close'] / start_price * initial_investment,
-            name='Nilai Portofolio',
-            line=dict(color='green')
-        )  # Semua tanda kurung sekarang tertutup
-        
-        # Konversi tanggal investasi
+        # Garis vertikal untuk tanggal investasi
         fig.update_xaxes(type='date')
         fig.add_vline(
             x=investment_date,
             line_dash="dash",
-            line_color="red",
+            line_color="red"
         )
         
         fig.update_layout(
@@ -131,14 +130,16 @@ def portfolio_simulation(ticker):
         
         # Grafik drawdown
         fig2 = go.Figure()
-        fig2.add_trace(go.Scatter(
-            x=dates,
-            y=drawdown,
-            name='Drawdown',
-            fill='tozeroy',
-            fillcolor='rgba(255,0,0,0.2)',
-            line=dict(color='red')
-        ))  # Semua tanda kurung sekarang tertutup
+        fig2.add_trace(
+            go.Scatter(
+                x=data.index,
+                y=drawdown,
+                name='Drawdown',
+                fill='tozeroy',
+                fillcolor='rgba(255,0,0,0.2)',
+                line=dict(color='red')
+            )
+        )
         
         fig2.update_layout(
             title="Drawdown Portofolio",
