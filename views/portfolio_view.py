@@ -83,18 +83,22 @@ def portfolio_simulation(ticker):
         # Grafik kinerja
         st.subheader("📈 Kinerja Portofolio")
         fig = go.Figure()
+        
+        # Konversi index untuk Plotly
+        dates = data.index.astype(str)  # Konversi ke string
+        
         fig.add_trace(go.Scatter(
-            x=data.index,
+            x=dates,
             y=data['Close'] / start_price * initial_investment,
             name='Nilai Portofolio',
             line=dict(color='green')
-        ))
-       
-        if isinstance(investment_date, pd.Timestamp):
-            investment_date = investment_date.to_pydatetime()
-
+        )
+        
+        # Konversi tanggal investasi ke string
+        investment_date_str = investment_date.strftime('%Y-%m-%d')
+        
         fig.add_vline(
-            x=investment_date,
+            x=investment_date_str,
             line_dash="dash",
             line_color="red",
             annotation_text="Investasi Awal",
@@ -130,7 +134,7 @@ def portfolio_simulation(ticker):
         # Grafik drawdown
         fig2 = go.Figure()
         fig2.add_trace(go.Scatter(
-            x=data.index,
+            x=dates,
             y=drawdown,
             name='Drawdown',
             fill='tozeroy',
