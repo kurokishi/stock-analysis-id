@@ -13,19 +13,19 @@ class StockValidator:
         return ticker.isalnum()
         
     @staticmethod
-def filter_valid_tickers(tickers):
-    """Filter ticker yang valid dengan format yang benar"""
-    valid = []
-    for t in tickers:
-        try:
-            t_clean = str(t).strip().upper()
-            
-            # Validasi format ticker (contoh: 'BBCA.JK' atau 'AAPL')
-            if re.match(r'^[A-Z]{2,5}(\.[A-Z]{2})?$', t_clean):
-                valid.append(t_clean)
-        except:
-            continue
-    return valid
+    def filter_valid_tickers(tickers):
+        """Filter ticker yang valid dengan format yang benar"""
+        valid = []
+        for t in tickers:
+            try:
+                t_clean = str(t).strip().upper()
+                
+                # Validasi format ticker (contoh: 'BBCA.JK' atau 'AAPL')
+                if re.match(r'^[A-Z]{2,5}(\.[A-Z]{2})?$', t_clean):
+                    valid.append(t_clean)
+            except:
+                continue
+        return valid
 
     @staticmethod
     def validate_date_range(start_date, end_date):
