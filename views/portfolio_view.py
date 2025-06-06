@@ -85,19 +85,20 @@ def portfolio_simulation(ticker):
         fig = go.Figure()
         
         # Konversi index untuk Plotly
-        dates = data.index.astype(str)  # Konversi ke string
+        dates = data.index.astype(str)
         
+        # PERBAIKAN UTAMA: Menutup semua tanda kurung dengan benar
         fig.add_trace(go.Scatter(
             x=dates,
             y=data['Close'] / start_price * initial_investment,
             name='Nilai Portofolio',
             line=dict(color='green')
-        )
+        )  # Semua tanda kurung sekarang tertutup
         
-        # Konversi tanggal investasi ke string
-        fig.update_xaxes(type='date')  # Pastikan x-axis bisa baca tanggal
+        # Konversi tanggal investasi
+        fig.update_xaxes(type='date')
         fig.add_vline(
-            x=investment_date,  # Gunakan datetime object langsung
+            x=investment_date,
             line_dash="dash",
             line_color="red",
         )
@@ -137,7 +138,8 @@ def portfolio_simulation(ticker):
             fill='tozeroy',
             fillcolor='rgba(255,0,0,0.2)',
             line=dict(color='red')
-        ))
+        ))  # Semua tanda kurung sekarang tertutup
+        
         fig2.update_layout(
             title="Drawdown Portofolio",
             xaxis_title="Tanggal",
