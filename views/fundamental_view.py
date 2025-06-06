@@ -1,27 +1,15 @@
 import streamlit as st
 import yfinance as yf
 import matplotlib.pyplot as plt
-import requests  # Pastikan diimpor
 from utils.formatter import format_rupiah
 from utils.validator import StockValidator
 
 def show_fundamental_analysis(ticker):
     try:
-        # 1. Setup session dengan headers custom
-        session = requests.Session()
-        session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-            'Accept': '*/*',
-            'Accept-Language': 'en-US,en;q=0.9'
-        })
+        # 1. JANGAN gunakan custom session - biarkan yfinance mengatur sesinya sendiri
+        stock = yf.Ticker(ticker)
         
-        # 2. Gunakan yfinance dengan custom session
-        stock = yf.Ticker(
-            ticker,
-            session=session
-        )
-        
-        # 3. Cek ketersediaan data
+        # 2. Cek ketersediaan data dengan timeout yang lebih baik
         info = stock.info
         if not info:
             st.error("Data tidak tersedia untuk saham ini")
