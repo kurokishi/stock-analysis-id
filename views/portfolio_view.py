@@ -92,15 +92,15 @@ def portfolio_simulation(ticker):
             y=data['Close'] / start_price * initial_investment,
             name='Nilai Portofolio',
             line=dict(color='green')
-        ))  # <-- Penutupan kurung yang benar
+        )
         
         # Konversi tanggal investasi ke string
-        fig.update_xaxes(type='date')  # Ensure x-axis handles dates
-fig.add_vline(
-    x=investment_date,  # Pass the datetime object directly
-    line_dash="dash",
-    line_color="red",
-)
+        fig.update_xaxes(type='date')  # Pastikan x-axis bisa baca tanggal
+        fig.add_vline(
+            x=investment_date,  # Gunakan datetime object langsung
+            line_dash="dash",
+            line_color="red",
+        )
         
         fig.update_layout(
             title="Perkembangan Nilai Portofolio",
