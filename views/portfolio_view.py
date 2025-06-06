@@ -92,7 +92,7 @@ def portfolio_simulation(ticker):
             y=data['Close'] / start_price * initial_investment,
             name='Nilai Portofolio',
             line=dict(color='green')
-        )
+        ))  # <-- Penutupan kurung yang benar
         
         # Konversi tanggal investasi ke string
         investment_date_str = investment_date.strftime('%Y-%m-%d')
