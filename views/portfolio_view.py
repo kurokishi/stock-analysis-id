@@ -35,10 +35,15 @@ def portfolio_simulation(ticker):
     
     if st.button("Hitung Kinerja", key="portfolio_calculate"):
         # Validasi input
-        if not StockValidator.validate_investment_amount(initial_investment):
-            st.error("Jumlah investasi minimal Rp100.000")
+        try:
+            initial_investment = float(initial_investment)
+            if not StockValidator.validate_investment_amount(initial_investment):
+                st.error("Jumlah investasi minimal Rp100.000")
+                return
+        except ValueError:
+            st.error("Masukkan jumlah investasi yang valid")
             return
-        
+            
         # Konversi ke datetime tanpa timezone
         investment_date = pd.to_datetime(investment_date).tz_localize(None)
         
