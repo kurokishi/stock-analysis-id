@@ -3,6 +3,14 @@ import re
 from datetime import datetime
 
 class StockValidator:
+  @staticmethod
+  def validate_investment_amount(amount):
+        """Validasi jumlah investasi minimal Rp100.000"""
+        try:
+            return float(amount) >= 100000
+        except (ValueError, TypeError):
+            return False
+  
     @staticmethod
     def validate_ticker(ticker):
         """Validasi format ticker saham"""
