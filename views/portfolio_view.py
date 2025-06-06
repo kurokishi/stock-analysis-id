@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import plotly.graph_objects as go
-import numpy as np  # Ditambahkan untuk perhitungan volatilitas
 from datetime import datetime, timedelta
 from utils.data_fetcher import DataFetcher
 from utils.formatter import format_rupiah
@@ -90,18 +90,17 @@ def portfolio_simulation(ticker):
             line=dict(color='green')
         ))
        
-if isinstance(investment_date, (pd.Timestamp, datetime.datetime)):
-    vline_x = investment_date.timestamp() * 1000  # Plotly menggunakan milidetik
-else:
-    vline_x = pd.to_datetime(investment_date).timestamp() * 1000
+        if isinstance(investment_date, pd.Timestamp):
+            investment_date = investment_date.to_pydatetime()
 
-fig.add_vline(
-    x=vline_x,
-    line_dash="dash",
-    line_color="red",
-    annotation_text="Investasi Awal",
-    annotation_position="top"
-)
+        fig.add_vline(
+            x=investment_date,
+            line_dash="dash",
+            line_color="red",
+            annotation_text="Investasi Awal",
+            annotation_position="top"
+        )
+        
         fig.update_layout(
             title="Perkembangan Nilai Portofolio",
             xaxis_title="Tanggal",
